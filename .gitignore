@@ -1,0 +1,34 @@
+# Patient data never goes in git. Keep extracts, exports, and outputs on the encrypted local volume.
+data/
+out/
+exports/
+*.csv
+*.tsv
+*.xlsx
+*.xls
+*.parquet
+*.sqlite
+*.db
+*.pdf
+*.hl7
+*.ndjson
+
+# Synthetic fixtures are the only data allowed in the repo
+!tests/fixtures/**
+
+# Secrets
+.env
+.env.*
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
