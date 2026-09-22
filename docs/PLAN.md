@@ -1,20 +1,20 @@
 # Clinic Review: panel-wide screening and care-gap review
 
-Plan v0.3, 2026-09-22. Bonne Vie Medical Clinic, Coquitlam BC. EMR: TELUS Collaborative Health Record (CHR, formerly Input Health).
+Plan v0.4, 2026-09-22. Bonne Vie Medical Clinic, Coquitlam BC. EMR: TELUS Collaborative Health Record (CHR, formerly Input Health).
 
 **Goal:** for every active longitudinal patient aged 0 to 100, produce a verifiable list of what's due, overdue, or left open, using BC rules, and turn it into work the clinic actually closes.
 
-**This repo holds the rules, the concept layer, the export loader, and synthetic test data. No patient data, ever.**
+**How:** browser automation reads each chart in CHR on the clinic Mac, a model on the same Mac turns reports and free text into facts, and deterministic BC rules decide what's a gap. Everything patient-level stays on the Mac.
+
+**This repo is public and holds rules, the concept layer, code, and synthetic test patients. Nothing patient-level or clinic-operational, ever.**
 
 ---
 
 ## 1. How this fits with the CHR Panel Review Spec
 
-The CHR Panel Review Spec (private Claude Doc, 2026-09-22) already covers the *hands*. The Autochart.ai Mac app's Clinic Workspace walks each chart at a human pace overnight. It keeps the JSON CHR loads for each screen, stores it in an encrypted SQLite on the clinic Mac, and puts findings in a review queue. That spec gives Adrian the navigator and storage, Adans the queue and staged writes, and Ali the concept layer, rules, and precision reviews.
+The CHR Panel Review Spec (private Claude Doc, 2026-09-22) sets up the overall system. A navigator walks each chart in CHR at a human pace overnight and keeps what CHR loads for each screen. It stores that in an encrypted SQLite on the clinic Mac and puts findings in a clinician review queue. It gives Ali the concept layer, the rules, and the precision reviews.
 
-This repo is the **brain for Ali's part**: which patients are in scope, what's due for each of them at every age, how to tell "done" from "not found", and how to prove the rules are right before anyone sees a worklist. It's written so it can be built and fully tested now, with synthetic patients, while the navigator's being built.
-
-**One change to the spec's data plan, which I'd push hard on:** CHR has a self-serve bulk export (Settings > Exports, section 5). The spec assumed there was no bulk route and planned 70 to 100 hours of overnight chart walking for the first pass. The export is sanctioned, runs in minutes to hours, and covers most of what the rules need. It also avoids a week of unusual-looking activity in TELUS's audit logs. So: **export for the baseline, and the navigator only for what the export doesn't carry** (probably PDF contents and anything "Patient Data" flattens). That shrinks the navigator's job a lot, and lets this repo ingest the export directly on the clinic Mac.
+This repo is that part: which patients are in scope, what's due for each of them at every age, how to tell "done" from "not found", and how to prove the rules are right before anyone sees a worklist. It can be built and fully tested now with synthetic patients. It can also hold the chart walker itself if you pick option A in section 5.3.
 
 It uses the spec's finding categories:
 
@@ -28,14 +28,14 @@ It uses the spec's finding categories:
 
 ---
 
-## 2. Guardrails (before any code touches CHR)
+## 2. Guardrails
 
-1. **This repo is public right now.** Make it private. Rules and the catalog are fine to share one day. Anything clinic-specific or integration-specific isn't. `.gitignore` blocks data, exports, PDFs, and spreadsheets. Add a pre-commit hook that rejects anything passing the BC PHN check (10 digits, leading 9, mod-11 check digit).
-2. **PHI stays in Canada, which rules me out.** Claude can't run with in-Canada inference on any platform right now (Anthropic API, Bedrock ca-central-1, Vertex, and Foundry all route to the US or globally). So I build and test against synthetic patients, and the real run happens on the clinic Mac.
-3. **The CPSBC AI guideline has a consent clause worth taking seriously.** "Personal patient data must not be transferred from the clinical environment at which care is provided without patient consent or where required or permitted by law" (Ethical Principles for AI in Medicine, v1.2, April 2026). An on-device model avoids that question entirely. A Canada East Azure endpoint is arguably fine under PIPA as a service provider, but it's arguable. Section 7 recommends on-device first for that reason.
-4. **PIA before the first harvest.** OIPC BC says a PIA isn't required under PIPA but recommends one, and will review it. Whether panel-wide gap review counts as direct care (implied consent) or secondary use (express consent) isn't settled in any BC guidance. The PIA should take a position and get a quick read from Fasken.
-5. **Custodianship:** start with your own panel. Colleagues' panels need their written OK.
-6. **Decision support only.** The engine never orders, books, or messages anything. The spec's "stage, don't submit" rule holds.
+1. **Public repo, so nothing patient-level or clinic-operational goes in it.** It holds rules, the concept layer, code, and synthetic patients. Everything else stays on the clinic Mac: patient data, panel counts and sizes, MRP status, patient lists, recall and deadline lists, screening interventions, run outputs, model configuration, and the CHR-specific walker profile (routes, selectors, endpoint names). That's enforced three ways: `.gitignore`, a pre-commit hook (`scripts/check_no_phi.py` rejects anything passing the BC PHN check, and data-type files), and the same check in CI on every push.
+2. **PHI stays on the Mac.** The extraction model runs on the Mac. Azure OpenAI Canada East, as a regional deployment, is the fallback. Claude never sees charts. It has no in-Canada inference on any platform, so I build and test against synthetic patients only.
+3. **Keep dev tools away from the data.** The walker and its encrypted store run under a separate macOS user account, with the data directory at `700`. Claude Code, including the Mac mini `--dangerously-skip-permissions` runs, works in the dev account against synthetic fixtures and can't read the store. Logs carry CHR IDs only.
+4. **Consent and privacy:** covered by Bonne Vie's signed-off clinic policies.
+5. **Pilot on your own panel** before anyone else's.
+6. **Read-only, decision support only.** The walker has no handlers for Save, Sign, Send, or Book. The engine never orders, books, or messages. Any write goes through the spec's stage-don't-submit queue.
 
 ---
 
@@ -49,7 +49,7 @@ Seven sub-types, worked in this order. Screening-result loops go first even thou
 | 2 | **Unrecognized conditions** | A1c ≥ 6.5% twice with no diabetes code. eGFR < 60 for 3+ months with no CKD code. Fragility fracture with no osteoporosis assessment. | catalog §8 |
 | 3 | **Cancer screening** | Breast, cervix, colon, lung | catalog §2 |
 | 4 | **Other screening** | BP, diabetes, lipids and CV risk, osteoporosis, AAA, HIV, HCV, STI | catalog §3 |
-| 5 | **Immunizations** | Childhood schedule, school catch-up, Td, PCV20 at 65, RSV at 75, HPV deadline Dec 31, 2026 | catalog §4 |
+| 5 | **Immunizations** | Childhood schedule, school catch-up, Td, PCV20 at 65, RSV at 75, HPV9 catch-up | catalog §4 |
 | 6 | **Chronic disease monitoring** | Diabetes (A1c, ACR, eGFR, eye, foot, statin), CKD, HTN, CHF, COPD, high-risk drug monitoring | catalog §8 |
 | 7 | **Life stage** | Well-child visits (Rourke 0 to 5, Greig 6 to 17), prenatal labs, advance care planning and MOST, hereditary cancer referral | catalog §5 to §7 |
 
@@ -63,65 +63,78 @@ Running rules on walk-ins, transfers, and the deceased inflates every count and 
 
 - **Include:** active in CHR, not deceased, primary provider ("PP") is the physician under review, at least one visit in the last 36 months.
 - **Exclude:** walk-in or episodic only, transferred out, moved, deceased.
-- **Reconcile** against your LFP panel in the Provincial Attachment System (PAS). CHR already has LFP dashboards for this: "active but not seen" and "seen but not active" lists, plus a PAS empanelment dashboard. Start there. Anyone in only one list goes on a panel-hygiene list.
+- **Reconcile** against CHR's LFP dashboards ("active but not seen", "seen but not active", PAS empanelment). The results stay on the Mac.
 - **Age** is computed at run date. Every age-triggered rule also reports "eligible within 90 days" so recalls batch well.
 
-**Time-sensitive, and it isn't about screening:** from the Jul to Sep 2026 LFP period (paid Nov 30), panel size comes from PAS and counts only patients whose MRP status is "Confirmed". Complexity comes from ICD-9 codes on your claims. The research suggests the PAS cutoff for that period is **before Oct 1, 2026**. Worth checking the PAS dashboard for unconfirmed patients this week. That's straight revenue, and it's the same denominator work this plan needs anyway.
-
-If the Patients export doesn't carry status and primary provider, the fallback is "seen in the last 36 months, primary provider from the chart header".
+If the patient list doesn't show status and primary provider, the fallback is "seen in the last 36 months, primary provider from the chart header".
 
 Run the denominator alone first and sanity-check the count before any rule runs.
 
 ---
 
-## 5. Getting the data: export first, navigator for the rest
+## 5. Getting the data: browser automation of CHR
 
-### 5.1 CHR's self-serve export
+### 5.1 How the walk works
 
-**Settings > Exports.** It needs the "Data export" permission and 2FA on your CHR account. It filters by date range, by provider, and by an uploaded CSV of patient IDs. Output is a password-protected ZIP of CSVs, and you get an email when it's ready. It's documented in CHR's help centre ("Exporting data from the CHR" and "Data export categories and content").
+- **Where:** the clinic Mac, in real Chrome. The clinician starts Chrome, logs in to CHR, and does 2FA by hand. The walker attaches to that session and never touches credentials.
+- **How it moves:** for each patient it opens chart sections by CHR's own page routes (what the address bar shows when you click through), waits for the screen to settle, and moves on. Clicks and keyboard are only a fallback for screens with no route, like a pop-over.
+- **What it keeps:**
+  - **Primary:** the JSON responses CHR's own page fetches to draw each screen, captured passively. The walker never sends a request CHR's page didn't make itself. That's the posture the CHR Companion work calls the most defensible.
+  - **Cross-check:** DOM reading with a versioned selector profile, for anything computed on screen.
+  - **Documents:** the PDF CHR loads in its viewer, OCR'd on-device with Apple Vision.
+- **Raw first:** every response body is stored as received, encrypted, next to the normalized facts. Parsers can be fixed without walking the chart again.
+- **Pacing:** 3 to 6 s jittered pause per screen, off-hours only (e.g. 7 pm to 6 am). It stops and alerts on logout, a login or 2FA prompt, or a screen failing to load twice, and resumes from the last completed patient.
+- **Wrong-patient guard:** every captured response's patient ID has to match the chart the walker opened, or it's thrown away.
+- **Audit log:** CHR ID, time, screens visited, run ID. Nothing else.
 
-The code review found the exports screen empty. That most likely means no export had been run, or the account lacked the permission. It doesn't mean the feature's missing. Phase 0 settles it.
+### 5.2 Walk only what the rules need
 
-| Export | What the rules get from it | Verified? |
+The spec budgets about 12 screens and 2 to 3 minutes per patient, which is 70 to 100 hours for a 2,000-patient panel. For category A, most patients don't need most screens. Every rule declares its `evidence_sources` (section 6.2), so the walker can plan each patient's screens from their age, sex, and conditions:
+
+1. **Roster pass, everyone:** patient list and chart header only (age, sex, status, primary provider). At two screens each this is roughly one night for the whole panel, and it produces the denominator.
+2. **Eligibility pass:** only the screens some rule needs for that patient. A healthy 30-year-old man needs history, vitals, immunizations, and labs. A 62-year-old woman adds documents (mammogram, colonoscopy, DXA). Encounter notes are only opened when a free-text fact (family history, smoking) isn't answered by the structured history screens.
+3. **Incremental:** after the first pass, only patients with new activity since the last run (daysheet, inbox, new results). That's minutes a night.
+
+I'd expect the eligibility pass to cut the first walk substantially, but that's a guess. The first 50 charts will give a real number.
+
+### 5.3 Where the walker lives (decision)
+
+| | **A. Playwright in this repo (recommended for the pilot)** | **B. The Mac app's Clinic Workspace (spec as written)** |
 |---|---|---|
-| **Patients** | Demographics, hopefully status and primary provider (the denominator) | Columns not documented. Check in Phase 0. |
-| **Patient Data** | "All patient data values other than the Latest Lab Results and Patient Name". Probably medical, surgical, family, and social history, risk factors, vitals, and preventive care entries. CHR warns it's slow. | Columns not documented. This is the big one to inspect. |
-| **Encounters** | Visit dates, diagnoses, and maybe note text | Not documented |
-| **Prescriptions** | Two files: medications and prescriptions | Named, columns not documented |
-| **Patient Injections** | Immunizations | Not documented |
-| **Original Lab Messages** | **Raw HL7** from Excelleris and others (ID, created date, distributor, HL7 message, provider, file ID) | Documented. Structured OBX segments beat scraped lab tables. |
-| **Patient Files** | Active files only (archived ones aren't exported). Unclear whether it's the PDFs or just a listing. | **Key unknown.** If it's only a listing, PDF contents come from the navigator or a per-patient chart PDF. |
-| **Incoming Faxes** | Title, date, sender, patient. Good for classifying screening letters by sender. | Documented |
-| **Imported Data** | Jane-era imported records | Documented |
-| **Qnaire Responses** | Spec's category C | Not documented |
-| **Schedule** | Upcoming bookings, for the pre-visit card | Not documented |
+| How | Python + Playwright attached over the Chrome DevTools Protocol to the Chrome you started and logged into. That avoids an automation-flagged browser. | Swift, inside the Autochart.ai Mac app's embedded CHR view |
+| For | One Python pipeline (walk, store, rules, extraction, reports) one person can run and change. No wait on the Mac app's release cycle. Response capture is built in. Testable against a fake CHR-like page with synthetic patients. | Reuses the existing CHR selector profiles, login persistence, wrong-patient guards, and PHI scrubber. It's the path to an Autochart.ai feature. |
+| Against | Duplicates some Mac app work. The CHR-specific profile can't live in a public repo, so it's a gitignored local file. | Depends on the Mac app team's time and beta flags. The Mac app's open PHI audit items have to close first. |
 
-**Phase 0 test:** run each export for your own provider, filtered to 5 test patients, on the clinic Mac. Write down the column headers (no values) and map them to the concepts below. That's an hour's work, and it decides how much the navigator has to do.
+Either way the walker writes the same raw store and the same concept-level facts, so the rules don't care which one you pick. Starting with A and porting to B if this becomes a product is cheap.
 
-### 5.2 What the rules need, and where it probably comes from
+### 5.4 Phase 0: map screens to data
 
-| Concept family | Export source (fallback: navigator screen) | Coded? | Notes for the rules |
+With capture on, a clinician clicks through 5 test charts once. From the recording we write down screen → route → JSON fields → concept. The CHR-specific half of that mapping (routes, selectors, field names) goes in the local profile, not this repo. Only the concept names are committed here. The spec's code review already has a candidate list of chart sections, so this confirms rather than discovers.
+
+### 5.5 What the rules need, and where it probably comes from
+
+| Concept family | CHR screen | Coded? | Notes for the rules |
 |---|---|---|---|
-| Demographics, sex at birth, status, primary provider | Patients (`property-items`) | Partly | Gender identity and sex at birth both matter (breast, cervix). Indigenous identity only if self-identified. It gates Hep A, RSV at 60, and COVID eligibility, and never appears in aggregates. |
-| Conditions | Patient Data, Encounters (diagnoses) | MSP ICD-9 where coded, free text otherwise | Encounter and billing diagnoses catch conditions nobody put in Medical History |
-| Surgical history (exclusions) | Patient Data (`surgical-history-records`) | Free text | Hysterectomy type, mastectomy, colectomy. LLM extraction target. |
-| Family history | Patient Data (`family-history-records`) | Free text | Drives breast annual, colon 5-yearly, hereditary referral. LLM target. |
-| Smoking, alcohol | Patient Data (`risk-factors`, `social-history-records`) | Probably free text | Lung eligibility hinges on it. Missing = its own gap. |
-| Medications | Prescriptions | Name strings, no DIN seen | Name-to-ATC table (statins, immunosuppressants, DOACs, lithium, glucocorticoids) |
-| Immunizations | Patient Injections | Unknown | Incomplete by design: pharmacy and school doses mostly aren't in CHR |
-| Labs | Original Lab Messages (HL7) | OBX codes (local, maybe LOINC) | Lab code/name table for A1c, ACR, eGFR, lipids, Lp(a), FIT, HPV, HIV, HCV, TSH, drug levels. Cervix screening reports carry the next due date. |
-| Vitals | Patient Data (`vitals`) | Probably structured | BP, weight, height |
-| Screening reports | Patient Files + Incoming Faxes (fallback: navigator) | PDF | On-device OCR, then extraction of BI-RADS, HPV result and next due date, colonoscopy findings and recommended interval, LDCT category, DXA T-score |
-| Visits | Encounters | Dates, diagnoses | Denominator activity window, well-child visit timing |
-| Pregnancy | Encounters, labs, Patient Data | Mixed | Triggers the prenatal rule set |
+| Demographics, sex at birth, status, primary provider | Patient list, chart header and profile | Partly | Gender identity and sex at birth both matter (breast, cervix). Indigenous identity only if self-identified. It gates Hep A, RSV at 60, and COVID eligibility, and never appears in aggregates. |
+| Conditions | Medical history, past diagnoses, encounter diagnoses | MSP ICD-9 where coded, free text otherwise | Encounter and billing diagnoses catch conditions nobody put in Medical History |
+| Surgical history (exclusions) | Surgical history | Free text | Hysterectomy type, mastectomy, colectomy. Extraction target. |
+| Family history | Family history | Free text | Drives breast annual, colon 5-yearly, hereditary referral. Extraction target. |
+| Smoking, alcohol | Risk factors, social history | Probably free text | Lung eligibility hinges on it. Missing = its own gap. |
+| Medications | Medications, prescriptions | Name strings, no DIN seen | Name-to-ATC table (statins, immunosuppressants, DOACs, lithium, glucocorticoids) |
+| Immunizations | Injections | Unknown | Incomplete by design: pharmacy and school doses mostly aren't in CHR |
+| Labs | Lab results | Names and values, no LOINC seen | Lab name table for A1c, ACR, eGFR, lipids, Lp(a), FIT, HPV, HIV, HCV, TSH, drug levels. Cervix screening reports print the next due date. |
+| Vitals | Vitals | Probably structured | BP, weight, height |
+| Screening reports | Files (Diagnostic Imaging, Consults, Lab, Hospital, Historical Chart, imported) | PDF | On-device OCR, then extraction of BI-RADS, HPV result and next due date, colonoscopy findings and recommended interval, LDCT category, DXA T-score |
+| Visits | Encounter list | Dates, diagnoses | Denominator activity window, well-child visit timing |
+| Pregnancy | Encounters, labs, history | Mixed | Triggers the prenatal rule set |
 
-### 5.3 CHR's own preventive care module
+### 5.6 CHR's own preventive care module
 
-CHR has a per-patient Preventive Care section and a "Preventative Care Report" dashboard with compliance by provider (ask support to install it if it isn't there). **Switch it on in week 1 as a free baseline**, but don't trust its BC defaults. Cervix is still Pap + HPV every 3 years, diabetes screening is every 5 years, and it only counts its own structured entries, not PDF results. Catalog §10 has the comparison. Our rule output should beat it, and the gap between the two is a useful sanity check.
+CHR has a per-patient Preventive Care section and a "Preventative Care Report" dashboard. It's worth switching on as a baseline, but its BC defaults are out of date. Cervix is still Pap + HPV every 3 years, diabetes screening is every 5 years, and it only counts its own structured entries, not results sitting in PDFs. Catalog §10 has the comparison. Our output should beat it, and the gap between the two is a useful sanity check.
 
-### 5.4 What CHR won't have
+### 5.7 What CHR won't have
 
-A lot of this happens outside the clinic, and it only reaches CHR if the patient named you:
+A lot of screening happens outside the clinic, and it only reaches CHR if the patient named you:
 
 - Self-referred mammograms (and **BC Cancer sends providers no overdue reminders for breast**)
 - HPV self-screening kits
@@ -129,7 +142,7 @@ A lot of this happens outside the clinic, and it only reaches CHR if the patient
 - Pharmacy and public-health immunizations, which live in the provincial registry (CareConnect, Health Gateway)
 - School-program vaccines (grade 6 and 9)
 - Colonoscopies and imaging in other health authorities
-- Jane-era and "Historical Chart" history, which sits in documents, not coded fields
+- History from before CHR, which sits in imported documents, not coded fields
 
 So **"not found in chart" never counts as "overdue".** Section 6.3 makes that a first-class state, and section 8 puts a CareConnect check between the rules and any outreach.
 
@@ -139,7 +152,7 @@ So **"not found in chart" never counts as "overdue".** Section 6.3 makes that a 
 
 ### 6.1 Concept layer
 
-A curated table maps ICD-9 codes, free-text synonyms, lab test names, drug names, and document keywords to about 150 internal concepts (`dx.diabetes`, `obs.a1c`, `screen.mammogram`, `proc.hysterectomy_total`, `imm.pcv20`). It's built and clinician-signed before the rules, as the spec says. Lives in `valuesets/`.
+A curated table maps ICD-9 codes, free-text synonyms, lab test names, drug names, and document keywords to about 150 internal concepts (`dx.diabetes`, `obs.a1c`, `screen.mammogram`, `proc.hysterectomy_total`, `imm.pcv20`). It's built and clinician-signed before the rules, as the spec says. It lives in `valuesets/`.
 
 ### 6.2 Rule format
 
@@ -164,7 +177,7 @@ satisfied_by:
   - {concept: proc.colonoscopy, within_months: 120}
   - {concept: proc.flex_sig, within_months: 120}
   - {concept: imaging.ct_colonography, within_months: 60}
-evidence_sources: [lab-results, files:Consults, files:Hospital]
+evidence_sources: [labs, documents.consults, documents.hospital, history.surgical]
 declined_valid_months: 24
 action:
   kind: order            # physician orders FIT; patients can't self-order
@@ -173,13 +186,13 @@ review_by: 2027-03-01    # BC Cancer is "investigating" starting at 45
 owner: ali
 ```
 
-Every rule carries its source, the date it was checked, a review-by date, and an owner. BC changed cervix, breast, colon follow-up, and pneumococcal rules in 2024 to 2026, and the federal Task Force was wound down in March 2026. CI fails when any rule is past its review-by date.
+Every rule carries its source, the date it was checked, a review-by date, and an owner. BC changed its cervix, breast, colon follow-up, and pneumococcal rules between 2024 and 2026, and the federal Task Force was wound down in March 2026. CI fails when any rule is past its review-by date. `evidence_sources` also tells the walker which screens to open (section 5.2).
 
-**⚠ decide:** YAML here plus a small Python evaluator, or ACA-style Python modules (the spec's suggestion, reusing ACA's registry and `missing_inputs`)? I'd keep the *content* in YAML either way, so you can edit rules without touching code, and have a thin ACA module that loads it. You get ACA's machinery and a clinician-editable source of truth.
+**⚠ decide:** YAML here plus a small Python evaluator, or ACA-style Python modules (the spec's suggestion, reusing ACA's registry and `missing_inputs`)? I'd keep the *content* in YAML either way, so you can edit rules without touching code, and have a thin ACA module load it.
 
 ### 6.3 Evidence states
 
-Every eligible patient gets exactly one state per rule. The review queue shows the state, the evidence, and (for "not found") where it looked.
+Every eligible patient gets exactly one state per rule. The review queue shows the state and the evidence, and for "not found" it also shows where the engine looked.
 
 | State | Meaning | Queue action |
 |---|---|---|
@@ -193,79 +206,75 @@ Every eligible patient gets exactly one state per rule. The review queue shows t
 | `UNKNOWN` | Can't decide, an input's missing | The missing input becomes the task ("record smoking history") |
 | `NOT_ELIGIBLE` | Outside population | Hidden |
 
-`NOT_FOUND` vs `OVERDUE` matters most for immunizations and self-referred cancer screening. `DISCUSS` keeps "available" or "optional" items off the recall list.
-
 ### 6.4 Engine
 
 Deterministic Python, no LLM. In: the normalized store, the concept layer, and the rules. Out: `(patient_id, rule_id, rule_version, state, due_date, evidence_ids[], searched_sources[], run_id)`. The same inputs always give the same output, so every run can be diffed against the last.
 
 ---
 
-## 7. Where the LLM and OCR fit
+## 7. The model on the Mac
 
-LLMs do one job: **turn unstructured chart content into facts**, each with a quoted span that has to match the source exactly (the spec's traceability rule). They never decide whether something's a gap.
+The model does one job: **turn unstructured chart content into facts**. Each fact carries a quoted span that has to match the source exactly (the spec's traceability rule). The model never decides whether something's a gap.
 
 For category A the extraction targets are narrow:
 
 - **Screening reports:** BI-RADS category and density, HPV result and the lab's printed next-due date, colonoscopy findings and the recommended interval, LDCT result category, DXA T-scores
 - **Free text:** smoking status and pack-years, family history of breast, colorectal, ovarian, and pancreatic cancer, hysterectomy type, informed refusals ("declines FIT"), goals of care
 
-Keyword and concept matching runs first. Only documents that could satisfy a rule go to the model, which cuts volume a lot.
+Keyword and concept matching runs first. Only documents that could satisfy a rule go to the model.
 
-**Hosting options:**
+**Decided: on-device first, Azure Canada East as fallback.**
 
-| Option | Residency | Cost | Catch |
-|---|---|---|---|
-| **On-device on the clinic Mac (recommended first).** Apple Vision OCR plus an open-weight ~30B mixture-of-experts model via MLX or Ollama on a 64 GB Mac mini | PHI never leaves the clinic, so the CPSBC consent clause doesn't come up | Hardware you may already have | Slower. Extraction is prompt-heavy, so budget roughly 5 to 10 s per 3k-token document for an MoE model. It runs overnight. Needs its own accuracy check. |
-| **Azure OpenAI Canada East, regional deployment** | In Canada (regional only; Global and Data Zone route out of Canada) | gpt-4.1-mini at US$0.48 in / $1.94 out per M tokens | Only gpt-4.1-mini and gpt-4o are regional in Canada, and **both retire April 14, 2027**. GPT-5 in Canada needs provisioned throughput, about US$8.5k a month minimum. Batch discounts are Global-only. |
-| Azure Document Intelligence, Canada Central (OCR only) | In Canada, 24-hour retention | Read US$1.50 per 1,000 pages | Only if on-device OCR isn't good enough on faxes |
+| | On the Mac (primary) | Azure OpenAI Canada East (fallback) |
+|---|---|---|
+| Setup | Apple Vision for OCR. An open-weight ~30B mixture-of-experts model via MLX or Ollama. The candidate is picked by the extraction check (section 9). | **Regional** deployment only. Global and Data Zone deployments process outside Canada. |
+| Hardware / cost | Needs an Apple Silicon Mac with 64 GB for a ~30B model. 32 GB means a smaller model and a harder extraction check. | gpt-4.1-mini at about US$0.48 in / $1.94 out per million tokens. A 2,000-patient first pass is well under US$100. |
+| Speed | Roughly 5 to 10 s per 3k-token document. It runs alongside the overnight walk, so the walk stays the bottleneck. | Fast |
+| Catch | Needs its own accuracy check | gpt-4.1-mini and gpt-4o are the only regional models in Canada, and **both retire April 14, 2027**. Prompts and schemas stay model-agnostic, so swapping means rerunning the extraction check, not rewriting. |
 
-Money isn't the deciding factor. A 2,000-patient panel at 60k tokens a patient is about 120M input tokens, roughly US$60 on Canada East. The first pass of scanned pages is in the low hundreds of dollars on Document Intelligence, or free on-device. Residency, consent, and model retirement are what matter.
-
-Time does matter with the on-device route. At 5 to 10 s per document and maybe 20 relevant documents per patient, a 2,000-patient first pass is 55 to 110 hours of model time. That's one to two weeks of nights on one Mac, the same order as the spec's chart walk. Keyword pre-filtering is what keeps it there, and refreshes after that take minutes.
+Which model and endpoint are actually in use lives in the Mac's local config, not in this repo.
 
 ---
 
 ## 8. From gap to closed gap
 
-This follows the spec's queue and adds what category A needs:
+Everything in this section is generated and kept on the Mac. It follows the spec's queue and adds what category A needs:
 
 1. **Panel dashboard, aggregates only:** per rule, eligible / up to date / due / overdue / not found, by age band. This is the baseline, and it shows progress over time.
 2. **Queue order:** screening-result loops first (physician review within a week of each run), then unrecognized conditions, then cancer screening, immunizations, chronic monitoring, life stage.
 3. **CareConnect check** on every `NOT_FOUND` before outreach. "Found externally" back-fills the store and teaches the rule where to look ("already done" in the spec).
 4. **Outreach matched to how Bonne Vie runs:**
    - Needs a visit (loops, chronic monitoring, well-child, anything needing a conversation): **MOA books**. The script carries no clinical detail ("Dr. X would like to see you for a check-up"). CHR auto-sends SMS and email on booking, so the MOA confirms before saving.
-   - Patient can self-arrange: breast (1-800-663-9203), cervix self-screening kit (1-877-702-6566 or online), lung (1-877-717-5864), and flu, COVID, and PCV20 at a pharmacy. A physician-approved patient message with the number. FIT isn't in this group, since BC requires a physician or NP order.
+   - Patient can self-arrange: breast (1-800-663-9203), cervix self-screening kit (1-877-702-6566 or online), lung (1-877-717-5864), and flu, COVID, and PCV20 at a pharmacy. The patient gets a physician-approved message with the number. FIT isn't in this group, since BC requires a physician or NP order.
    - Later: Autochart.ai Voice for recall calls.
 5. **Pre-visit card:** open category A items for each booked patient on the day sheet. Most gaps close opportunistically. It's also the natural hook into Autochart.ai Scribe pre-charting.
-6. **Weekly re-run** on patients with new activity, per the spec. The ledger keeps open, closed, and declined history, so closure rate per rule is a real number.
-
-**Time-sensitive this quarter:** HPV9 catch-up for people born 1998 and 1999 (and 1979 and 1980 in the expanded group) has to be finished by **Dec 31, 2026**. If the harvest isn't ready by November, pull that list by hand from date of birth.
+6. **Weekly incremental walk** on patients with new activity. The ledger keeps open, closed, and declined history, so closure rate per rule is a real number.
 
 ---
 
 ## 9. Validation
 
-1. **Synthetic suite (this repo, CI):** every rule gets hand-built patients at its edges. That means age 49.99 vs 50.00 and 74.99 vs 75.00, one day inside and outside the interval, exclusion present, decline present, and contradictory data. Synthea covers bulk and performance.
-2. **Chart audit (outside this repo):** a stratified random sample of 100 patients across age bands, reviewed by hand against the engine. Compute per-rule positive predictive value and sensitivity. A rule reaches the queue only at **PPV ≥ 90% and sensitivity ≥ 85%**. Below that it runs in shadow mode. That's stricter than the spec's 70% acceptance gate on purpose: category A is deterministic, so it should be precise.
-3. **Extraction check:** about 200 hand-labelled documents across report types. Per-field accuracy (BI-RADS, next-due date, T-score, colonoscopy interval) has to clear the bar before the screening-result loops go live.
-4. **"Already done" rate** from the queue, per rule, as the spec proposes. A high rate means a data source is missing, not that the rule's wrong.
-5. **Regression:** any change to a rule, value set, or model reruns the synthetic suite and diffs the ledger against the last live run.
+1. **Synthetic suite (this repo, CI):** every rule gets hand-built patients at its edges. That means age 49.99 vs 50.00 and 74.99 vs 75.00, one day inside and outside the interval, exclusion present, decline present, and contradictory data. Synthea covers bulk and performance. If you pick walker option A, a fake CHR-like page with synthetic patients tests the walker too.
+2. **Walker check (on the Mac):** the first 50 real charts are captured with zero wrong-patient mismatches, checked by hand against CHR (the spec's Phase 1 gate).
+3. **Chart audit (on the Mac):** a stratified random sample of 100 patients across age bands, reviewed by hand against the engine. Compute per-rule positive predictive value and sensitivity. A rule reaches the queue only at **PPV ≥ 90% and sensitivity ≥ 85%**. Below that it runs in shadow mode. That's stricter than the spec's 70% acceptance gate on purpose: category A is deterministic, so it should be precise.
+4. **Extraction check (on the Mac):** about 200 hand-labelled documents across report types. Per-field accuracy (BI-RADS, next-due date, T-score, colonoscopy interval) decides the on-device model and has to clear the bar before the screening-result loops go live.
+5. **"Already done" rate** from the queue, per rule, as the spec proposes. A high rate means a data source is missing, not that the rule's wrong.
+6. **Regression:** any change to a rule, value set, or model reruns the synthetic suite and diffs the ledger against the last live run.
+
+Audit and extraction results stay on the Mac. Only the per-rule pass/fail decision (a rule moving out of shadow mode) is recorded here, as a change to the rule file.
 
 ---
 
 ## 10. Phasing
 
-This repo's work can start today and runs alongside the spec's phases.
-
-| When | This repo | Spec phase it lines up with | Exit criteria |
+| When | Work | Spec phase | Exit criteria |
 |---|---|---|---|
-| **Week 1** | Repo private, PHN hook. Grant yourself Data export + 2FA. Run the 5-patient export test (§5.1) and record column headers only. Turn on CHR's Preventative Care Report and check the LFP/PAS dashboards. | 0 (map screens) | Headers mapped to concepts. We know whether Patient Files carries PDFs. |
-| **Weeks 1 to 2** | Catalog signed off, concept layer v1, export loader (CSV + HL7), rules for cancer screening + loops, evaluator, synthetic suite in CI | 0 and 1 (walk and store), with the navigator scoped down to what the export lacks | You've signed the catalog. CI is green on every edge case. |
-| **Weeks 3 to 4** | Remaining adult screening, immunizations, unrecognized conditions, chronic monitoring for DM, HTN, CKD | 1 and 2 | Full-panel export loaded on the clinic Mac. Rules run in shadow mode on your panel. |
-| **Weeks 5 to 6** | Extraction schemas and prompts for screening reports and free-text facts. On-device model chosen and checked. | 3 (category A) | Extraction check passes. 100-chart audit hits PPV and sensitivity thresholds. |
-| **Weeks 7 to 8** | Pediatrics (Rourke, Greig, childhood and school immunizations), prenatal, life-stage rules | 3 continued | First month of closure-rate data |
-| **Later** | Colleagues' panels with sign-off. Decide what becomes an Autochart.ai care-gap feature. | beyond 5 | Productizing moves this from internal QI to a Health Canada SaMD question, which is its own decision. |
+| **Week 1** | Walker decision (A or B). Phase 0 click-through on 5 test charts, mapping kept local. PHN guard hook and CI. Catalog sign-off. | 0 (map) | Every chart section the rules need has a known route and field list |
+| **Weeks 1 to 2** | Concept layer v1, rule format, evaluator, cancer screening and loop rules, synthetic suite in CI. Option A: walker skeleton against the fake page. | 0 and 1 | CI is green on every edge case |
+| **Weeks 3 to 4** | Walker on your first 50 charts. Remaining adult screening, immunizations, unrecognized conditions, chronic monitoring for DM, HTN, CKD. Rules in shadow mode. | 1 (walk and store) | Zero wrong-patient mismatches on 50 charts |
+| **Weeks 5 to 6** | On-device OCR and extraction, model chosen. First full-panel walk (roster pass, then eligibility pass). 100-chart audit. | 3 (category A) | Extraction check and audit thresholds met |
+| **Weeks 7 to 8** | Pediatrics (Rourke, Greig, childhood and school immunizations), prenatal, life-stage rules. Queue live for rules that passed. Weekly incremental walks. | 3 continued | First month of closure-rate data |
+| **Later** | Colleagues' panels. Decide what becomes an Autochart.ai care-gap feature. | beyond 5 | Productizing moves this from internal QI to a Health Canada SaMD question, which is its own decision. |
 
 ---
 
@@ -275,26 +284,26 @@ This repo's work can start today and runs alongside the spec's phases.
 |---|---|
 | "Gap" that's really data sitting outside CHR | `NOT_FOUND` state, CareConnect check, "already done" feedback |
 | Bad extraction giving false reassurance (wrong BI-RADS, wrong interval) | Exact-quote rule, extraction check, physician review of every screening-result loop |
+| CHR UI changes break the walker | Navigate by routes, not clicks. Versioned local profile. Self-check against a known test chart at the start of every run, and stop on mismatch. |
+| TELUS sees nights of chart views from one account | Human pacing, off-hours, eligibility-driven walk to cut volume. Decide up front whether to tell TELUS (the spec's open question). |
+| Session timeout or 2FA mid-run | Stop, alert, resume from the last completed patient |
+| Wrong-patient capture | Patient-ID match on every response. Mismatches are discarded and logged. |
+| Patient data reaching GitHub | `.gitignore`, pre-commit PHN guard, the same guard in CI, separate macOS account for the data |
 | Alert fatigue | `DISCUSS` state keeps optional items off recall lists, rules ship in phases, shadow mode below threshold |
 | Guideline drift | Source, checked date, review-by date, and owner on every rule. CI fails on stale rules. |
-| PHI in git, logs, or prompts | Private repo, PHN pre-commit hook, no PHI in logs, on-device first |
 | Recall volume swamping the MOAs | Batch by due date, cap weekly recalls, loops first |
-| CHR terms of use and audit visibility of overnight walks | Export-first shrinks the walk to what the export lacks. Still worth one call to TELUS before any overnight run. |
-| Export columns turn out thinner than hoped | The navigator is the fallback for any concept the export lacks. Phase 0 tells us which ones, before any code depends on them. |
-| Export ZIPs sitting around with the whole panel's PHI | Download only to the encrypted clinic Mac, never email or cloud-sync them, delete after ingest, and log each export in the PIA's records |
-| gpt-4.1-mini retiring April 2027 if Azure's chosen | Prompt and schema written to be model-agnostic, with an extraction check rerun on any model swap |
+| Azure fallback model retiring April 2027 | Model-agnostic prompts and schemas, extraction check rerun on any swap |
 
 ---
 
 ## 12. Decisions I need from you
 
-1. **Export-first:** OK to change the spec so the baseline comes from CHR's export and the navigator only fills gaps? If yes, who on the CHR account gets the Data export permission? It's a lot of PHI in one ZIP, so I'd keep it to you.
-2. **Repo role:** is clinic_review the home for the rules, the concept layer, and the export loader (what this plan assumes), with the Mac app consuming the output? Or should rules live in ACA from day one?
-3. **LLM hosting:** on-device first (recommended), or Azure Canada East?
-4. **Consent position for the PIA:** direct care (implied consent) or secondary use (notice or express consent)? Worth a quick question to Jon at Fasken.
-5. **Panel scope for v1:** your panel only (recommended)?
-6. **Denominator:** is 36 months since the last visit the right activity window? And have you checked PAS for unconfirmed patients before the Oct 1 cutoff?
-7. **Contested rules:** 13 of them, each with my recommendation, in catalog §9. The big ones are the hypertension threshold (BC 135/85 vs Hypertension Canada 130/80), osteoporosis (FRAX-first vs BMD at 70), and whether breast 40 to 49 is a gap or a discussion.
+1. **Walker:** Playwright in this repo (A, recommended for the pilot) or the Mac app's Clinic Workspace (B, the spec as written)?
+2. **Which Mac, and how much memory?** 64 GB runs a ~30B model comfortably. 32 GB means a smaller model and a tougher extraction check.
+3. **Tell TELUS** before the first overnight walk?
+4. **Panel scope for v1:** your panel only?
+5. **Activity window:** is 36 months since the last visit right?
+6. **Contested rules:** 13 of them, each with my recommendation, in catalog §9. The big ones are the hypertension threshold (BC 135/85 vs Hypertension Canada 130/80), osteoporosis (FRAX-first vs BMD at 70), and whether breast 40 to 49 is a gap or a discussion.
 
 ---
 
@@ -302,16 +311,20 @@ This repo's work can start today and runs alongside the spec's phases.
 
 ```
 clinic_review/
-  docs/                 plan, catalog, PIA outline (no PHI)
+  docs/                 plan, catalog, sources
   rules/                one YAML per rule
   valuesets/            concept layer: ICD-9, lab names, drug→ATC, document keywords, vaccine→antigen
+  scripts/
+    check_no_phi.py     pre-commit and CI guard
   src/clinic_review/
-    ingest/             CHR export loader (CSV + HL7), normalizer into the fact store
+    walker/             generic browser walker (option A). Loads the CHR profile from local/.
+    store/              encrypted raw + normalized store (SQLCipher)
     engine/             evaluator, evidence states, ledger
-    extract_schemas/    JSON schemas + prompts for report and free-text extraction
+    extract/            OCR + extraction schemas and prompts. Model adapters: local (MLX/Ollama), Azure Canada East.
     report/             dashboard aggregates, queue export, pre-visit card
   tests/
-    fixtures/           synthetic patients only
+    fixtures/           synthetic patients, fake CHR-like page
+  local/                gitignored: CHR profile (routes, selectors, fields), model config
 ```
 
-The navigator, the encrypted store, and the queue UI live in the Mac app, per the spec. The export loader lives here, so the whole pipeline can run on the clinic Mac from an export before the navigator exists.
+The encrypted data store lives outside the repo, under the separate macOS account.

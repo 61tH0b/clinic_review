@@ -182,7 +182,7 @@ Use age as a proxy for grade (grade 6 ≈ 11 to 12, grade 9 ≈ 14 to 15). Publi
 | `imm.td` | 18+ | Td or Tdap `imm` | 10 y | Adults born 1989+ who missed adolescent Tdap get one funded Tdap. |
 | `imm.mmr` | Born on or after 1970-01-01 | 2 documented measles/mumps doses or immunity | 2 doses | Rubella: 1 dose if born 1957+. |
 | `imm.varicella` | Susceptible adults | 2 doses or lab-confirmed immunity or disease before 2004 | 2 doses | "Susceptible" definition is detailed; mostly `UNKNOWN` in charts. Low priority. |
-| `imm.hpv` | 9 to 26 (to 45 for GBMSM, Two-Spirit, trans, non-binary; HIV 9 to 45) | HPV9 doses | 1 dose (9 to 20), 2 doses ≥ 24 wks apart (21 to 26), 3 doses if HIV/immunocompromised/post-colposcopy treatment | **Deadline:** people born 1998/1999 (and 1979/1980 in the expanded group) must finish by **Dec 31, 2026**. High-urgency recall this quarter. |
+| `imm.hpv` | 9 to 26 (to 45 for GBMSM, Two-Spirit, trans, non-binary; HIV 9 to 45) | HPV9 doses | 1 dose (9 to 20), 2 doses ≥ 24 wks apart (21 to 26), 3 doses if HIV/immunocompromised/post-colposcopy treatment | Rule parameter: people born 1998/1999 (and 1979/1980 in the expanded group) must finish the series by Dec 31, 2026. |
 | `imm.hepb` | Born 1980+ or risk group | 3 doses or immunity | Series | |
 | `imm.menacwy` | Born 2002+, to age 24 | 1 dose Men-C-ACYW | Once | |
 | `imm.flu` | 6 mo+ | Seasonal dose `imm` | Each season (Oct to Mar) | 65+: Fluad is the funded product. Children < 9 in first season: 2 doses. Much of this happens at pharmacies. |
@@ -260,7 +260,7 @@ Also age-triggered at 65+ and 75+: `imm.pcv20.65`, `imm.flu` (Fluad), `imm.rsv.o
 
 ### 8.1 Unrecognized conditions
 
-These find patients whose data already meets a diagnosis that isn't on their chart. They're cheap, high yield, and they feed the chronic monitoring rules. **They also matter for LFP.** From the Jul to Sep 2026 period, LFP panel complexity comes from the CIHI grouper using ICD-9 codes on MSP claims, so an uncoded diabetic or CKD patient is under-counted.
+These find patients whose data already meets a diagnosis that isn't on their chart. They're cheap, high yield, and they feed the chronic monitoring rules. They also matter for LFP, where panel complexity comes from ICD-9 codes on MSP claims, so an uncoded diabetic or CKD patient is under-counted.
 
 | Rule | Criteria | Not flagged if |
 |---|---|---|
