@@ -63,6 +63,8 @@ Running rules on walk-ins, transfers, and the deceased inflates every count and 
 
 - **Include:** active in CHR, not deceased, primary provider ("PP") is the physician under review, at least one visit in the last 36 months.
 - **Exclude:** walk-in or episodic only, transferred out, moved, deceased.
+- **Not seen in 36 months:** out of the rule run, but not dropped. They go on their own outreach list, since a long gap is itself a reason to reach out.
+- **v1 is your panel only.** The roster pass pages through CHR's patient search filtered to your panel (the analytics patient search), so the walker never opens anyone else's chart.
 - **Reconcile** against CHR's LFP dashboards ("active but not seen", "seen but not active", PAS empanelment). The results stay on the Mac.
 - **Age** is computed at run date. Every age-triggered rule also reports "eligible within 90 days" so recalls batch well.
 
@@ -241,8 +243,8 @@ Keyword and concept matching runs first. Only documents that could satisfy a rul
 
 | | On the Mac (primary) | Azure OpenAI Canada East (fallback) |
 |---|---|---|
-| Setup | Apple Vision for OCR. An open-weight ~30B mixture-of-experts model via MLX or Ollama. The candidate is picked by the extraction check (section 9). | **Regional** deployment only. Global and Data Zone deployments process outside Canada. |
-| Hardware / cost | Needs an Apple Silicon Mac with 64 GB for a ~30B model. 32 GB means a smaller model and a harder extraction check. | gpt-4.1-mini at about US$0.48 in / $1.94 out per million tokens. A 2,000-patient first pass is well under US$100. |
+| Setup | Apple Vision for OCR. An open-weight model via MLX or Ollama, sized for the 24 GB Mac mini: roughly 14B dense or a ~20B mixture-of-experts model at 4-bit, since macOS gives the GPU only part of the RAM. The candidate is picked by the extraction check (section 9). | **Regional** deployment only. Global and Data Zone deployments process outside Canada. |
+| Hardware / cost | The 24 GB Mac mini you have. The ~30B models I'd first hoped for don't fit comfortably, so if the smaller model misses the extraction bar on scanned reports, those go to Azure. | gpt-4.1-mini at about US$0.48 in / $1.94 out per million tokens. A 2,000-patient first pass is well under US$100. |
 | Speed | Roughly 5 to 10 s per 3k-token document. It runs alongside the overnight walk, so the walk stays the bottleneck. | Fast |
 | Catch | Needs its own accuracy check | gpt-4.1-mini and gpt-4o are the only regional models in Canada, and **both retire April 14, 2027**. Prompts and schemas stay model-agnostic, so swapping means rerunning the extraction check, not rewriting. |
 
@@ -312,11 +314,10 @@ Audit and extraction results stay on the Mac. Only the per-rule pass/fail decisi
 
 ## 12. Decisions I need from you
 
-1. **Which Mac, and how much memory?** 64 GB runs a ~30B model comfortably. 32 GB means a smaller model and a tougher extraction check.
-2. **Tell TELUS** before the first overnight walk?
-3. **Panel scope for v1:** your panel only?
-4. **Activity window:** is 36 months since the last visit right?
-5. **Contested rules:** 13 of them, each with my recommendation, in catalog §9. The big ones are the hypertension threshold (BC 135/85 vs Hypertension Canada 130/80), osteoporosis (FRAX-first vs BMD at 70), and whether breast 40 to 49 is a gap or a discussion.
+Decided 2026-09-23: Mac mini with 24 GB, your panel only for v1, 36-month activity window (with the not-seen list used for outreach).
+
+1. **Tell TELUS** before the first overnight walk?
+2. **Contested rules:** 13 of them, each with my recommendation, in catalog §9. The big ones are the hypertension threshold (BC 135/85 vs Hypertension Canada 130/80), osteoporosis (FRAX-first vs BMD at 70), and whether breast 40 to 49 is a gap or a discussion.
 
 ---
 
