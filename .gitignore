@@ -39,3 +39,8 @@ captures/
 *.har
 *.zip
 *.local.*
+
+# Packaging
+*.egg-info/
+build/
+dist/

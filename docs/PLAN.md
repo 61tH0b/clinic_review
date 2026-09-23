@@ -1,6 +1,6 @@
 # Clinic Review: panel-wide screening and care-gap review
 
-Plan v0.4, 2026-09-22. Bonne Vie Medical Clinic, Coquitlam BC. EMR: TELUS Collaborative Health Record (CHR, formerly Input Health).
+Plan v0.5, 2026-09-23. Bonne Vie Medical Clinic, Coquitlam BC. EMR: TELUS Collaborative Health Record (CHR, formerly Input Health).
 
 **Goal:** for every active longitudinal patient aged 0 to 100, produce a verifiable list of what's due, overdue, or left open, using BC rules, and turn it into work the clinic actually closes.
 
@@ -14,7 +14,7 @@ Plan v0.4, 2026-09-22. Bonne Vie Medical Clinic, Coquitlam BC. EMR: TELUS Collab
 
 The CHR Panel Review Spec (private Claude Doc, 2026-09-22) sets up the overall system. A navigator walks each chart in CHR at a human pace overnight and keeps what CHR loads for each screen. It stores that in an encrypted SQLite on the clinic Mac and puts findings in a clinician review queue. It gives Ali the concept layer, the rules, and the precision reviews.
 
-This repo is that part: which patients are in scope, what's due for each of them at every age, how to tell "done" from "not found", and how to prove the rules are right before anyone sees a worklist. It can be built and fully tested now with synthetic patients. It can also hold the chart walker itself if you pick option A in section 5.3.
+This repo is that part: which patients are in scope, what's due for each of them at every age, how to tell "done" from "not found", and how to prove the rules are right before anyone sees a worklist. It can be built and fully tested now with synthetic patients. It also holds the chart walker (section 5.3).
 
 It uses the spec's finding categories:
 
@@ -77,14 +77,19 @@ Run the denominator alone first and sanity-check the count before any rule runs.
 ### 5.1 How the walk works
 
 - **Where:** the clinic Mac, in real Chrome. The clinician starts Chrome, logs in to CHR, and does 2FA by hand. The walker attaches to that session and never touches credentials.
+- **Chrome setup:** a dedicated Chrome profile for the walker, started with remote debugging on the loopback interface:
+  ```sh
+  open -na "Google Chrome" --args --user-data-dir="$HOME/ClinicReview/chrome-walker" --remote-debugging-port=9222
+  ```
+  Chrome 136 and later refuse remote debugging on the default profile, so a separate `--user-data-dir` is required anyway. It also keeps the walker's CHR session apart from everyday browsing. While that port is open, any process on the Mac can drive that Chrome, so only start it for a walk, under the separate data account, and quit it after. The walker refuses to attach to anything but `127.0.0.1` or `localhost`.
 - **How it moves:** for each patient it opens chart sections by CHR's own page routes (what the address bar shows when you click through), waits for the screen to settle, and moves on. Clicks and keyboard are only a fallback for screens with no route, like a pop-over.
 - **What it keeps:**
   - **Primary:** the JSON responses CHR's own page fetches to draw each screen, captured passively. The walker never sends a request CHR's page didn't make itself. That's the posture the CHR Companion work calls the most defensible.
   - **Cross-check:** DOM reading with a versioned selector profile, for anything computed on screen.
   - **Documents:** the PDF CHR loads in its viewer, OCR'd on-device with Apple Vision.
-- **Raw first:** every response body is stored as received, encrypted, next to the normalized facts. Parsers can be fixed without walking the chart again.
+- **Raw first:** every response body is stored as received, next to the normalized facts. Bodies and URLs are sealed with AES-256-GCM (key in the data account's macOS Keychain) and bound to their patient and screen, so a body can't be moved to another patient's row. Parsers can be fixed without walking the chart again.
 - **Pacing:** 3 to 6 s jittered pause per screen, off-hours only (e.g. 7 pm to 6 am). It stops and alerts on logout, a login or 2FA prompt, or a screen failing to load twice, and resumes from the last completed patient.
-- **Wrong-patient guard:** every captured response's patient ID has to match the chart the walker opened, or it's thrown away.
+- **Wrong-patient guard:** every captured response has to be provably about the chart the walker opened: the patient id is in the response URL, or every patient id in the body matches. A single conflicting id discards everything from that screen and stops the run. A canary test chart is checked before every run.
 - **Audit log:** CHR ID, time, screens visited, run ID. Nothing else.
 
 ### 5.2 Walk only what the rules need
@@ -97,19 +102,28 @@ The spec budgets about 12 screens and 2 to 3 minutes per patient, which is 70 to
 
 I'd expect the eligibility pass to cut the first walk substantially, but that's a guess. The first 50 charts will give a real number.
 
-### 5.3 Where the walker lives (decision)
+The walker already takes the screen list per run. Planning it per patient from the rules' `evidence_sources` plugs in once the rules exist.
 
-| | **A. Playwright in this repo (recommended for the pilot)** | **B. The Mac app's Clinic Workspace (spec as written)** |
-|---|---|---|
-| How | Python + Playwright attached over the Chrome DevTools Protocol to the Chrome you started and logged into. That avoids an automation-flagged browser. | Swift, inside the Autochart.ai Mac app's embedded CHR view |
-| For | One Python pipeline (walk, store, rules, extraction, reports) one person can run and change. No wait on the Mac app's release cycle. Response capture is built in. Testable against a fake CHR-like page with synthetic patients. | Reuses the existing CHR selector profiles, login persistence, wrong-patient guards, and PHI scrubber. It's the path to an Autochart.ai feature. |
-| Against | Duplicates some Mac app work. The CHR-specific profile can't live in a public repo, so it's a gitignored local file. | Depends on the Mac app team's time and beta flags. The Mac app's open PHI audit items have to close first. |
+### 5.3 Where the walker lives
 
-Either way the walker writes the same raw store and the same concept-level facts, so the rules don't care which one you pick. Starting with A and porting to B if this becomes a product is cheap.
+**Decided 2026-09-23: Playwright in this repo** (`src/clinic_review/walker/`), attached over the Chrome DevTools Protocol to the Chrome the clinician started and logged into. It's one Python pipeline one person can run and change, with no wait on the Mac app's release cycle.
+
+What's built and tested against a fake CHR-like app with synthetic patients (`tests/fake_emr.py`):
+
+| Piece | What it does |
+|---|---|
+| `walker/session.py` | Attaches to the clinician's Chrome in a tab of its own. Loopback only. |
+| `walker/walker.py` | Roster pass (patient list, then chart header per patient) and chart pass (chosen screens per patient). Passive capture, settle detection, two tries per screen, off-hours window, jittered pacing, resume by sweep. |
+| `walker/guard.py` | Wrong-patient verdict per response |
+| `walker/record.py` | Phase 0 recorder: routes and response shapes, no values |
+| `walker/profile.py` | Loads the EMR profile. The real CHR profile lives in `local/` (gitignored). `tests/fixtures/fake_emr/profile.yaml` is the format reference. |
+| `store/` | Sealed raw capture store, audit log, roster, progress |
+
+Tests cover the stop conditions end to end: wrong patient, logged out and resume, a screen that never loads, a broken canary, and outside the window. Not built yet: the DOM cross-check, per-patient screen planning from the rules, and OCR of captured PDFs. The Mac app's Clinic Workspace stays the path if this becomes an Autochart.ai feature. The raw store and concept-level facts don't change either way.
 
 ### 5.4 Phase 0: map screens to data
 
-With capture on, a clinician clicks through 5 test charts once. From the recording we write down screen → route → JSON fields → concept. The CHR-specific half of that mapping (routes, selectors, field names) goes in the local profile, not this repo. Only the concept names are committed here. The spec's code review already has a candidate list of chart sections, so this confirms rather than discovers.
+A clinician clicks through 5 test charts once while `python -m clinic_review.walker record --out local/phase0-map.jsonl` listens. It writes each page route and response path with ids replaced by `{id}`, plus the JSON shape (keys and types, no values). From that we write down screen → route → JSON fields → concept. The CHR-specific half of that mapping (routes, selectors, field names) goes in the local profile, not this repo. Only the concept names are committed here. The spec's code review already has a candidate list of chart sections, so this confirms rather than discovers.
 
 ### 5.5 What the rules need, and where it probably comes from
 
@@ -254,7 +268,7 @@ Everything in this section is generated and kept on the Mac. It follows the spec
 
 ## 9. Validation
 
-1. **Synthetic suite (this repo, CI):** every rule gets hand-built patients at its edges. That means age 49.99 vs 50.00 and 74.99 vs 75.00, one day inside and outside the interval, exclusion present, decline present, and contradictory data. Synthea covers bulk and performance. If you pick walker option A, a fake CHR-like page with synthetic patients tests the walker too.
+1. **Synthetic suite (this repo, CI):** every rule gets hand-built patients at its edges. That means age 49.99 vs 50.00 and 74.99 vs 75.00, one day inside and outside the interval, exclusion present, decline present, and contradictory data. Synthea covers bulk and performance. The walker runs end to end in CI against a fake CHR-like app with synthetic patients.
 2. **Walker check (on the Mac):** the first 50 real charts are captured with zero wrong-patient mismatches, checked by hand against CHR (the spec's Phase 1 gate).
 3. **Chart audit (on the Mac):** a stratified random sample of 100 patients across age bands, reviewed by hand against the engine. Compute per-rule positive predictive value and sensitivity. A rule reaches the queue only at **PPV ≥ 90% and sensitivity ≥ 85%**. Below that it runs in shadow mode. That's stricter than the spec's 70% acceptance gate on purpose: category A is deterministic, so it should be precise.
 4. **Extraction check (on the Mac):** about 200 hand-labelled documents across report types. Per-field accuracy (BI-RADS, next-due date, T-score, colonoscopy interval) decides the on-device model and has to clear the bar before the screening-result loops go live.
@@ -269,8 +283,8 @@ Audit and extraction results stay on the Mac. Only the per-rule pass/fail decisi
 
 | When | Work | Spec phase | Exit criteria |
 |---|---|---|---|
-| **Week 1** | Walker decision (A or B). Phase 0 click-through on 5 test charts, mapping kept local. PHN guard hook and CI. Catalog sign-off. | 0 (map) | Every chart section the rules need has a known route and field list |
-| **Weeks 1 to 2** | Concept layer v1, rule format, evaluator, cancer screening and loop rules, synthetic suite in CI. Option A: walker skeleton against the fake page. | 0 and 1 | CI is green on every edge case |
+| **Week 1** | Walker built and tested against the fake EMR (done). Phase 0: `walker record` on 5 test charts, then write the local CHR profile. Catalog sign-off. | 0 (map) | Every chart section the rules need has a known route and field list |
+| **Weeks 1 to 2** | Concept layer v1, rule format, evaluator, cancer screening and loop rules, synthetic suite in CI. Roster pass on your panel with `--limit 50`. | 0 and 1 | CI is green on every edge case |
 | **Weeks 3 to 4** | Walker on your first 50 charts. Remaining adult screening, immunizations, unrecognized conditions, chronic monitoring for DM, HTN, CKD. Rules in shadow mode. | 1 (walk and store) | Zero wrong-patient mismatches on 50 charts |
 | **Weeks 5 to 6** | On-device OCR and extraction, model chosen. First full-panel walk (roster pass, then eligibility pass). 100-chart audit. | 3 (category A) | Extraction check and audit thresholds met |
 | **Weeks 7 to 8** | Pediatrics (Rourke, Greig, childhood and school immunizations), prenatal, life-stage rules. Queue live for rules that passed. Weekly incremental walks. | 3 continued | First month of closure-rate data |
@@ -298,12 +312,11 @@ Audit and extraction results stay on the Mac. Only the per-rule pass/fail decisi
 
 ## 12. Decisions I need from you
 
-1. **Walker:** Playwright in this repo (A, recommended for the pilot) or the Mac app's Clinic Workspace (B, the spec as written)?
-2. **Which Mac, and how much memory?** 64 GB runs a ~30B model comfortably. 32 GB means a smaller model and a tougher extraction check.
-3. **Tell TELUS** before the first overnight walk?
-4. **Panel scope for v1:** your panel only?
-5. **Activity window:** is 36 months since the last visit right?
-6. **Contested rules:** 13 of them, each with my recommendation, in catalog §9. The big ones are the hypertension threshold (BC 135/85 vs Hypertension Canada 130/80), osteoporosis (FRAX-first vs BMD at 70), and whether breast 40 to 49 is a gap or a discussion.
+1. **Which Mac, and how much memory?** 64 GB runs a ~30B model comfortably. 32 GB means a smaller model and a tougher extraction check.
+2. **Tell TELUS** before the first overnight walk?
+3. **Panel scope for v1:** your panel only?
+4. **Activity window:** is 36 months since the last visit right?
+5. **Contested rules:** 13 of them, each with my recommendation, in catalog §9. The big ones are the hypertension threshold (BC 135/85 vs Hypertension Canada 130/80), osteoporosis (FRAX-first vs BMD at 70), and whether breast 40 to 49 is a gap or a discussion.
 
 ---
 
@@ -317,13 +330,14 @@ clinic_review/
   scripts/
     check_no_phi.py     pre-commit and CI guard
   src/clinic_review/
-    walker/             generic browser walker (option A). Loads the CHR profile from local/.
-    store/              encrypted raw + normalized store (SQLCipher)
+    walker/             browser walker: session, capture, guard, pacing, Phase 0 recorder
+    store/              sealed raw capture store (SQLite, AES-256-GCM, key in macOS Keychain)
     engine/             evaluator, evidence states, ledger
     extract/            OCR + extraction schemas and prompts. Model adapters: local (MLX/Ollama), Azure Canada East.
     report/             dashboard aggregates, queue export, pre-visit card
   tests/
-    fixtures/           synthetic patients, fake CHR-like page
+    fake_emr.py         fake CHR-like server with synthetic patients
+    fixtures/           fake EMR app and its walker profile
   local/                gitignored: CHR profile (routes, selectors, fields), model config
 ```
 

@@ -1,0 +1,45 @@
+# Walker profile for the fake EMR used in tests. It's also the format reference for the
+# real CHR profile, which lives in local/ on the clinic Mac and never goes in git.
+name: fake-emr
+base_url: http://127.0.0.1:1  # tests swap in the live server URL
+
+roster:
+  route: "/#/patients/page/{page}"
+  capture: "/api/patients\\?page=\\d+$"
+  items_path: items
+  id_field: id
+
+screens:
+  summary:
+    route: "/#/patients/{patient_id}/summary"
+    capture: ["/api/patients/{patient_id}$"]
+  labs:
+    route: "/#/patients/{patient_id}/labs"
+    capture: ["/api/patients/{patient_id}/labs$"]
+  files:
+    route: "/#/patients/{patient_id}/files"
+    capture:
+      - "/api/patients/{patient_id}/files$"
+      - "/api/files/[^/]+/content$"
+    optional: ["/api/files/[^/]+/content$"]
+    allow_unbound: true   # file bytes are fetched by file id, not patient id
+
+roster_screens: [summary]
+chart_screens: [labs, files]
+
+# JSON keys that name the patient a response is about. Every value found must match.
+patient_id_keys: [patient_id]
+
+logged_out:
+  url_patterns: ["/login"]
+  selector: "form#login"
+
+canary_patient_id: "5000"
+
+pacing:
+  min_seconds: 0
+  max_seconds: 0
+  window: any
+  settle_ms: 300
+  screen_timeout_ms: 6000
+screen_attempts: 2
