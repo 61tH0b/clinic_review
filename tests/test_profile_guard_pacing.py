@@ -75,3 +75,22 @@ def test_verdict(kwargs, expected):
 )
 def test_in_window(now, start, end, inside):
     assert in_window(datetime.combine(datetime(2026, 9, 23), now), start, end) is inside
+
+
+class _FakeCDP:
+    def __init__(self, body: bytes):
+        self.body = body
+
+    def send(self, method, params):
+        import base64
+
+        return {"body": base64.b64encode(self.body).decode(), "base64Encoded": True}
+
+
+def test_truncated_body_is_never_kept():
+    from clinic_review.walker.walker import _read_paused
+
+    event = {"requestId": "1", "responseStatusCode": 200, "responseHeaders": [
+        {"name": "Content-Type", "value": "application/pdf"}, {"name": "Content-Length", "value": "41"}]}
+    assert _read_paused(_FakeCDP(b""), 0, "u", event).body is None
+    assert _read_paused(_FakeCDP(b"x" * 41), 0, "u", event).body == b"x" * 41

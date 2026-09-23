@@ -3,12 +3,13 @@
 It opens chart screens in the clinician's own logged-in Chrome, one patient at a time, and
 keeps the responses the EMR's own pages fetch to draw each screen. It never sends a request
 of its own: navigation is a page view (the same URL a person would click to), and response
-bodies are read back from the browser over CDP, not fetched again.
+bodies are read over CDP as they pass through to the page, not fetched again.
 
 It's read-only by construction. Nothing here clicks, types, saves, signs, sends or books.
 """
 from __future__ import annotations
 
+import base64
 import logging
 import random
 import re
@@ -20,7 +21,7 @@ from typing import Callable, Iterable
 from urllib.parse import quote
 
 from playwright.sync_api import Error as PlaywrightError
-from playwright.sync_api import Page, Response
+from playwright.sync_api import CDPSession, Page
 
 from ..store import ROSTER_ID, RawStore
 from .guard import Verdict, parse_json, verdict
@@ -80,6 +81,22 @@ class PassResult:
     @property
     def complete(self) -> bool:
         return self.stopped is None
+
+
+def _read_paused(cdp: CDPSession, index: int, url: str, event: dict) -> _Hit:
+    status = int(event.get("responseStatusCode") or 0)
+    headers = {h["name"].lower(): h["value"] for h in event.get("responseHeaders") or []}
+    body: bytes | None
+    try:
+        res = cdp.send("Fetch.getResponseBody", {"requestId": event["requestId"]})
+        raw = res.get("body", "")
+        body = base64.b64decode(raw) if res.get("base64Encoded") else raw.encode()
+    except PlaywrightError:
+        body = None
+    declared = headers.get("content-length")
+    if body is not None and declared and declared.isdigit() and len(body) != int(declared):
+        body = None  # truncated or unreadable: never keep a partial body
+    return _Hit(index, url, status, headers.get("content-type"), body)
 
 
 def _utc_now() -> str:
@@ -197,19 +214,38 @@ class Walker:
         return re.search(rf"(?<![0-9A-Za-z]){token}(?![0-9A-Za-z])", self.page.url) is not None
 
     def _load(self, url: str, patterns: list[re.Pattern[str]], required: set[int]) -> list[_Hit]:
-        """Open `url` and collect matching responses until the screen settles."""
+        """Open `url` and collect matching responses until the screen settles.
+
+        Bodies are read at the response stage over CDP (Fetch domain), before the page
+        consumes them. The request is still the page's own; the walker only reads the
+        response on its way through and passes it on unchanged. Reading afterwards
+        (Network.getResponseBody) returns empty bodies for some types on current Chrome.
+        """
         pacing = self.profile.pacing
-        hits: list[tuple[int, Response]] = []
+        hits: list[_Hit] = []
         last_hit = [time.monotonic()]
+        cdp = self.page.context.new_cdp_session(self.page)
 
-        def on_response(resp: Response) -> None:
-            for i, pattern in enumerate(patterns):
-                if pattern.search(resp.url):
-                    hits.append((i, resp))
-                    last_hit[0] = time.monotonic()
-                    return
+        def on_paused(event: dict) -> None:
+            request_id = event["requestId"]
+            try:
+                req_url = event["request"]["url"]
+                for i, pattern in enumerate(patterns):
+                    if pattern.search(req_url):
+                        hits.append(_read_paused(cdp, i, req_url, event))
+                        last_hit[0] = time.monotonic()
+                        break
+            finally:
+                try:
+                    cdp.send("Fetch.continueResponse", {"requestId": request_id})
+                except PlaywrightError:
+                    pass  # page navigated away; the request is gone
 
-        self.page.on("response", on_response)
+        cdp.on("Fetch.requestPaused", on_paused)
+        cdp.send(
+            "Fetch.enable",
+            {"patterns": [{"urlPattern": "*", "resourceType": t, "requestStage": "Response"} for t in ("XHR", "Fetch")]},
+        )
         try:
             try:
                 if self.page.url == url:
@@ -222,7 +258,7 @@ class Walker:
             last_hit[0] = max(last_hit[0], started)
             while True:
                 self._check_logged_in()
-                seen = {i for i, _ in hits}
+                seen = {h.index for h in hits}
                 now = time.monotonic()
                 if required <= seen and (now - last_hit[0]) * 1000 >= pacing.settle_ms:
                     break
@@ -230,16 +266,12 @@ class Walker:
                     raise _LoadTimeout(f"{len(required - seen)} expected response(s) never arrived")
                 self.page.wait_for_timeout(100)
         finally:
-            self.page.remove_listener("response", on_response)
-
-        out: list[_Hit] = []
-        for index, resp in hits:
             try:
-                body: bytes | None = resp.body()
+                cdp.send("Fetch.disable")
+                cdp.detach()
             except PlaywrightError:
-                body = None
-            out.append(_Hit(index, resp.url, resp.status, resp.headers.get("content-type"), body))
-        return out
+                pass
+        return list(hits)
 
     def _load_with_retries(self, url: str, patterns: list[re.Pattern[str]], required: set[int]) -> list[_Hit]:
         last: _LoadTimeout | None = None
