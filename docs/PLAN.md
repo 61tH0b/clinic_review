@@ -1,6 +1,6 @@
 # Clinic Review: panel-wide screening and care-gap review
 
-Plan v0.5, 2026-09-23. Bonne Vie Medical Clinic, Coquitlam BC. EMR: TELUS Collaborative Health Record (CHR, formerly Input Health).
+Plan v0.6, 2026-09-24. Bonne Vie Medical Clinic, Coquitlam BC. EMR: TELUS Collaborative Health Record (CHR, formerly Input Health).
 
 **Goal:** for every active longitudinal patient aged 0 to 100, produce a verifiable list of what's due, overdue, or left open, using BC rules, and turn it into work the clinic actually closes.
 
@@ -316,8 +316,12 @@ Audit and extraction results stay on the Mac. Only the per-rule pass/fail decisi
 
 Decided 2026-09-23: Mac mini with 24 GB, your panel only for v1, 36-month activity window (with the not-seen list used for outreach).
 
+Decided 2026-09-24: all 13 contested rules in catalog §9, as recommended. That includes BC's 135/85 hypertension threshold, FRAX-first for women 65+ (men 70+ as `DISCUSS`), and breast 40 to 49 as `DISCUSS`.
+
+Still open:
+
 1. **Tell TELUS** before the first overnight walk?
-2. **Contested rules:** 13 of them, each with my recommendation, in catalog §9. The big ones are the hypertension threshold (BC 135/85 vs Hypertension Canada 130/80), osteoporosis (FRAX-first vs BMD at 70), and whether breast 40 to 49 is a gap or a discussion.
+2. **Rule engine format** (section 6.2): YAML plus a small Python evaluator, or ACA-style modules that load the same YAML?
 
 ---
 
