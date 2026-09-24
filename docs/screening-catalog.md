@@ -1,10 +1,10 @@
 # Screening and care-gap rule catalog (ages 0 to 100, BC)
 
-Catalog v0.1, sources checked 2026-09-22. Every row becomes one YAML rule in `rules/`. Everything here is category A (preventive and chronic-care gaps) in the CHR Panel Review Spec, except the screening-result loops, which are the structured part of category B. Sub-types match [PLAN.md](PLAN.md) section 3: **loop**, **unrecognized**, **cancer**, **screening**, **immunization**, **chronic**, **life stage**.
+Catalog v0.2, sources checked 2026-09-22, contested rules decided 2026-09-24. Every row becomes one YAML rule in `rules/`. Everything here is category A (preventive and chronic-care gaps) in the CHR Panel Review Spec, except the screening-result loops, which are the structured part of category B. Sub-types match [PLAN.md](PLAN.md) section 3: **loop**, **unrecognized**, **cancer**, **screening**, **immunization**, **chronic**, **life stage**.
 
 "Evidence" is where the engine looks for proof, in the order it checks: `lab` structured result, `doc` scanned or faxed report, `bill` MSP claim, `imm` immunization record, `prob` problem list, `note` free text (LLM), `vital`.
 
-Items marked **⚠ decide** are places where sources conflict or there's a real clinical choice. They're collected in section 9.
+Where sources conflict or there's a real clinical choice, the row cites its decision in section 9. All 13 were decided on 2026-09-24.
 
 ---
 
@@ -15,7 +15,7 @@ When sources disagree, the higher one wins unless you override it:
 1. BC organized programs: BC Cancer Screening Guidelines (May 2026) and program pages, BCCDC Communicable Disease Control Manual Chapter 2 (Immunization, Sept 2026 schedules), BCCDC STI testing table (May 2026), Perinatal Services BC
 2. BC Guidelines (GPAC)
 3. National specialty guidelines: Hypertension Canada, Diabetes Canada, CCS lipids, Osteoporosis Canada, CPS, Rourke Baby Record 2024, Greig Health Record 2025
-4. Canadian Task Force on Preventive Health Care (archived; its mandate ended March 31, 2026 and the new National Advisory Committee on Preventive Health Services hasn't issued anything yet). Existing recommendations still inform rules where nothing BC-specific exists, but they won't be updated.
+4. Canadian Task Force on Preventive Health Care (archived; its mandate ended March 31, 2026 and the new National Advisory Committee on Preventive Health Services hasn't issued anything yet). Existing recommendations still inform rules where nothing BC-specific exists, but they won't be updated. Every rule that relies on one carries `review_by` 2027-06 (§9 #11).
 
 ---
 
@@ -26,10 +26,10 @@ When sources disagree, the higher one wins unless you override it:
 | Rule | Population | Satisfied by | Interval | Notes |
 |---|---|---|---|---|
 | `breast.avg.50_74` | Female sex at birth (or trans on estrogen ≥ 5 y), 50 to 74, average risk | Screening or diagnostic mammogram `doc` | 2 y | Self-referral: 1-800-663-9203. Patient message, not an order. |
-| `breast.avg.40_49` | Same, 40 to 49 | Same | 2 y | "Available", not "recommended". State `DISCUSS`, not a gap. |
+| `breast.avg.40_49` | Same, 40 to 49 | Same | 2 y | "Available", not "recommended". State `DISCUSS`, not a gap (§9 #7). |
 | `breast.fdr` | 40 to 74 with a first-degree relative with breast cancer | Same | **1 y** | Family history comes from `note`/`prob`. Missing family history on a 40+ patient makes this `UNKNOWN`. |
 | `breast.high_risk` | Known BRCA1/2, PALB2, CDH1, PTEN, STK11, NF1 carrier, untested FDR of a carrier, or very strong family history | Mammogram (± MRI via program) | 1 y from 30 | Also check Hereditary Cancer Program referral exists (`doc`). |
-| `breast.chest_rt` | Chest radiation age 10 to 30 | Same | 1 y | **⚠ decide** (§9 #4): start at 25 (Guidelines PDF, Fact Sheet) or 30 (web page). |
+| `breast.chest_rt` | Chest radiation age 10 to 30 | Same | 1 y from 25 | Starts at 25, per the May 2026 Guidelines PDF and Fact Sheet. The web page says 30 (§9 #4). |
 | `breast.75plus` | 75+ in good health | Same | 2 y | `DISCUSS`. Suppressed if frailty or life-limiting illness is coded. |
 
 Exclusions: personal breast cancer (surveillance, not screening), implants, bilateral mastectomy, chest construction (not addressed by BC Cancer, so this is a manual exclusion), pregnancy or breastfeeding in the last 3 months.
@@ -46,7 +46,7 @@ Screening-result loops:
 |---|---|---|---|---|
 | `cervix.hpv` | Has a cervix, 25 to 69, ever sexually active | HPV test (self or provider collected) `lab`/`doc` | 5 y | **Easiest rule to get right: the Cervical Cancer Screening Lab report prints the next due date.** Parse that date and use it in place of computing one. |
 | `cervix.cytology` | Same, last screen was cytology (LBC under 40 as of May 2026) | NILM cytology | 3 y | Lab moves to HPV on LBC for 25+ in Jan 2027. |
-| `cervix.immunocompromised` | Transplant, blood cancer, primary immunodeficiency, dialysis/severe CKD, on immunosuppressants (anti-TNF, MTX, AZA, MMF, JAK, anti-CD20) now or in the last 2 y | HPV test | **3 y**, to 74 | Immunosuppressant exposure comes from the med list via ATC. **⚠ decide:** HIV isn't clearly in BC Cancer's list (BC Guideline lists it as a risk factor). Stop rule at 74 also conflicts between sources. |
+| `cervix.immunocompromised` | Transplant, blood cancer, primary immunodeficiency, dialysis/severe CKD, on immunosuppressants (anti-TNF, MTX, AZA, MMF, JAK, anti-CD20) now or in the last 2 y | HPV test | **3 y**, to 74 | Immunosuppressant exposure comes from the med list via ATC. HIV counts as immunocompromised (§9 #6). Stops after a negative HPV test at 71 to 74, per the Guidelines PDF (§9 #5). |
 | `cervix.exit_70plus` | 69+ never screened or no screen in 5 y | One HPV test | Once | Stop if negative. |
 
 Exclusions: total hysterectomy with no CIN2/3 or AIS history (subtotal still screens), neovagina, under 25 regardless of history. Post-treatment CIN2/3 or AIS follows a cotest schedule (12 months, then every 3 years), so these patients get their own rule `cervix.post_treatment`.
@@ -65,7 +65,7 @@ Screening-result loops:
 | `colon.surveillance` | Prior colonoscopy with polyps | Colonoscopy | Per report: 6 mo (piecemeal), 1 y (10+ lesions), 3 y (5 to 9 low risk or any high risk), 5 y (FDR), 10 y | Read the endoscopist's recommended interval from the report, then check it against the BC Cancer July 2025 algorithm. Flag disagreements. |
 | `colon.75_84` | 75 to 84 | FIT (no-copy requisition) | Individual | `DISCUSS`. 85+: not recommended. |
 
-Not included: 45 to 49 (BC Cancer says not recommended; it's "investigating" dropping to 45, and the rule's review date is set to catch that). **⚠ decide** whether to show 40 to 49 as a discussion item, since the Dec 2025 Decision Table allows individual FIT.
+Not included: 45 to 49 (BC Cancer says not recommended; it's "investigating" dropping to 45, and the rule's review date is set to catch that). 40 to 49 at average risk isn't shown either, even though the Dec 2025 Decision Table allows individual FIT (§9 #8).
 
 Exclusions: colorectal cancer or IBD (specialist follow-up), total colectomy (manual exclusion, not covered by BC Cancer), symptoms (go to diagnostic work-up).
 
@@ -78,7 +78,7 @@ Screening-result loops:
 | Rule | Population | Satisfied by | Interval | Notes |
 |---|---|---|---|---|
 | `lung.eligibility` | 55 to 74, current or former regular commercial tobacco smoker | Program risk assessment or LDCT `doc` | 2 y (1 y or 3 mo per result) | **Patient self-refers by phone**: 1-877-717-5864. The program calculates PLCOm2012 (≥ 1.5%), so the engine flags "possibly eligible", not "eligible". |
-| `lung.smoking_unknown` | 55 to 74 with no smoking status recorded | Smoking status in `vital`/`note` | Once | **This is the real gap for most patients.** State `UNKNOWN`; action is "record smoking history". |
+| `lung.smoking_unknown` | 55 to 74 with no smoking status recorded | Smoking status in `vital`/`note` | Once | **This is the real gap for most patients.** State `UNKNOWN`; action is "record smoking history". Implemented as the `UNKNOWN` state of `lung.eligibility`, not a separate rule file. |
 
 Exclusions: prior lung cancer, active nodule surveillance, home O2 or severe COPD, heart failure, dialysis, other active cancer.
 
@@ -86,7 +86,7 @@ Screening-result loop: `lung.loop.followup_required`: LDCT "additional screening
 
 ### 2.5 Prostate
 
-`prostate.psa_sdm`: off by default. BC Guideline (2020): men 55 to 69 with > 10 years' life expectancy may choose PSA after informed discussion. Screening PSA isn't MSP-insured (~$35 patient pay). If turned on, it's `DISCUSS` only, and the open loop `prostate.loop.psa_rising` (PSA above age threshold or velocity with no repeat or urology referral) runs regardless of the screening setting.
+`prostate.psa_sdm`: off (§9 #9). BC Guideline (2020): men 55 to 69 with > 10 years' life expectancy may choose PSA after informed discussion. Screening PSA isn't MSP-insured (~$35 patient pay). If turned on, it's `DISCUSS` only, and the open loop `prostate.loop.psa_rising` (PSA above age threshold or velocity with no repeat or urology referral) runs regardless of the screening setting.
 
 ### 2.6 Hereditary cancer referral (life stage)
 
@@ -109,21 +109,21 @@ Screening-result loop: `lung.loop.followup_required`: LDCT "additional screening
 
 | Rule | Population | Satisfied by | Interval | Notes |
 |---|---|---|---|---|
-| `bone.frax_65f` | Female 65+ | FRAX documented (`note`) or BMD `doc` | FRAX once, then per result | CTFPHC 2023 FRAX-first. BMD only if treatment's on the table. MSP pays for BMD at 10-year risk ≥ 10%, and **not within 3 years of the last BMD** (exceptions: prednisone ≥ 7.5 mg for ≥ 3 months, primary hyperparathyroidism). |
+| `bone.frax_65f` | Female 65+ | FRAX documented (`note`) or BMD `doc` | FRAX once, then per result | CTFPHC 2023 FRAX-first (§9 #2). BMD only if treatment's on the table. MSP pays for BMD at 10-year risk ≥ 10%, and **not within 3 years of the last BMD** (exceptions: prednisone ≥ 7.5 mg for ≥ 3 months, primary hyperparathyroidism). |
 | `bone.bmd_repeat` | Untreated, prior BMD | BMD | By 10-y risk: < 10% 5 to 10 y, 10 to 15% 5 y, ≥ 15% 3 y. On treatment: 3 y after start. | Osteoporosis Canada 2023 intervals, floored at MSP's 3-year minimum |
 | `bone.glucocorticoid` | Prednisone ≥ 7.5 mg/day (or equivalent) for ≥ 3 months | BMD | Once, then per MSP | From the med list via ATC |
-| `bone.men_70` | Male 70+ | BMD or FRAX | Once | Osteoporosis Canada only (CTFPHC says don't screen men). **`DISCUSS`**, not a gap. **⚠ decide.** |
+| `bone.men_70` | Male 70+ | BMD or FRAX | Once | Osteoporosis Canada only (CTFPHC says don't screen men). **`DISCUSS`**, not a gap (§9 #2). |
 
 ### 3.3 Vascular
 
-`aaa.men_65_80`: male 65 to 80, one abdominal aortic ultrasound ever (or CT/US report mentioning the aorta). CTFPHC 2017 weak recommendation, and there's no BC program. Low priority. Also feeds `statin.indicated` (AAA > 3.0 cm).
+`aaa.men_65_80`: male 65 to 80, one abdominal aortic ultrasound ever (or CT/US report mentioning the aorta). CTFPHC 2017 weak recommendation, and there's no BC program. Low priority, `review_by` 2027-06 (§9 #11). Also feeds `statin.indicated` (AAA > 3.0 cm).
 
 ### 3.4 Infectious disease
 
 | Rule | Population | Satisfied by | Interval | Notes |
 |---|---|---|---|---|
 | `hiv.routine` | 18 to 70 | HIV Ag/Ab `lab` | 5 y | BCCDC HIV testing guideline (May 2026). **Annual** for GBMSM, people who inject drugs, sex workers, people from endemic countries (flags). 70+ with status never tested: once. |
-| `hcv.cohort` | Born 1945 to 1965 | Anti-HCV `lab` ever | Once | BC Viral Hepatitis Testing 2021: "can be considered". Cheap, curable, low priority. Annual if risk is ongoing. |
+| `hcv.cohort` | Born 1945 to 1965 | Anti-HCV `lab` ever | Once | BC Viral Hepatitis Testing 2021: "can be considered". Low-priority gap, since it's one test for a curable disease (§9 #10). Annual if risk is ongoing. |
 | `hbv.newcomer` | Born in an endemic country | HBsAg + anti-HBc ever | Once | Needs country of birth, which is rarely structured. Shadow mode until it's captured. |
 | `sti.under30` | 15 to 29 | CT/GC NAAT, HIV, syphilis | 12 mo | BCCDC (May 2026) uses **under 30** if sexually active. Sexual activity is rarely charted, so this is **pre-visit card only, never a recall**. |
 | `tb.newcomer` | Arrived from a country with TB incidence ≥ 50/100k, within 2 to 5 years (see Canadian TB Standards 2022, ch. 13) | IGRA or TST | Once | Needs arrival date and country. Parked for v1. |
@@ -173,7 +173,7 @@ Rules evaluate per antigen, not per visit, so a combo product satisfies each ant
 | Grade 6 | HPV9 (1 dose, 3 if immunocompromised), HepB and varicella catch-up | `imm.school.gr6` |
 | Grade 9 | Men-C-ACYW, Tdap | `imm.school.gr9` |
 
-Use age as a proxy for grade (grade 6 ≈ 11 to 12, grade 9 ≈ 14 to 15). Public health gives these at school, so they're usually **not in CHR**. Missing school doses default to `NEVER_FOUND`, not `OVERDUE`, until checked in the provincial registry.
+Use age as a proxy for grade (grade 6 ≈ 11 to 12, grade 9 ≈ 14 to 15). Public health gives these at school, so they're usually **not in CHR**. Missing school doses default to `NOT_FOUND`, not `OVERDUE`, until checked in the provincial registry.
 
 ### 4.3 Adults
 
@@ -182,15 +182,15 @@ Use age as a proxy for grade (grade 6 ≈ 11 to 12, grade 9 ≈ 14 to 15). Publi
 | `imm.td` | 18+ | Td or Tdap `imm` | 10 y | Adults born 1989+ who missed adolescent Tdap get one funded Tdap. |
 | `imm.mmr` | Born on or after 1970-01-01 | 2 documented measles/mumps doses or immunity | 2 doses | Rubella: 1 dose if born 1957+. |
 | `imm.varicella` | Susceptible adults | 2 doses or lab-confirmed immunity or disease before 2004 | 2 doses | "Susceptible" definition is detailed; mostly `UNKNOWN` in charts. Low priority. |
-| `imm.hpv` | 9 to 26 (to 45 for GBMSM, Two-Spirit, trans, non-binary; HIV 9 to 45) | HPV9 doses | 1 dose (9 to 20), 2 doses ≥ 24 wks apart (21 to 26), 3 doses if HIV/immunocompromised/post-colposcopy treatment | **Deadline:** people born 1998/1999 (and 1979/1980 in the expanded group) must finish by **Dec 31, 2026**. High-urgency recall this quarter. |
+| `imm.hpv` | 9 to 26 (to 45 for GBMSM, Two-Spirit, trans, non-binary; HIV 9 to 45) | HPV9 doses | 1 dose (9 to 20), 2 doses ≥ 24 wks apart (21 to 26), 3 doses if HIV/immunocompromised/post-colposcopy treatment | Rule parameter: people born 1998/1999 (and 1979/1980 in the expanded group) must finish the series by Dec 31, 2026. |
 | `imm.hepb` | Born 1980+ or risk group | 3 doses or immunity | Series | |
 | `imm.menacwy` | Born 2002+, to age 24 | 1 dose Men-C-ACYW | Once | |
 | `imm.flu` | 6 mo+ | Seasonal dose `imm` | Each season (Oct to Mar) | 65+: Fluad is the funded product. Children < 9 in first season: 2 doses. Much of this happens at pharmacies. |
-| `imm.covid` | 65+, Indigenous, LTC, pregnancy, medical conditions (2025-26 criteria) | Seasonal dose | Per season | **⚠ Fall 2026-27 criteria aren't published yet.** Rule stays in shadow mode until they are. |
+| `imm.covid` | 65+, Indigenous, LTC, pregnancy, medical conditions (2025-26 criteria) | Seasonal dose | Per season | **Fall 2026-27 criteria aren't published yet.** Rule stays in shadow mode until they are (§9 #12). |
 | `imm.pcv20.65` | 65+ | Any PCV20, PCV21, or PPV23 ever | Once | **Anyone with prior Pneumovax (PPV23) counts as done.** PCV21 isn't funded. |
 | `imm.pcv20.risk` | 5+ with a high-risk condition (diabetes, chronic heart/lung/liver/kidney disease, asplenia, HIV, immunosuppression, cancer, CSF leak, cochlear implant, homelessness, SUD, LTC resident) | PCV20 | Once | Conditions come from the fact store, so this is a good example of B feeding D. |
 | `imm.rsv.older` | 75+, or Indigenous 60+ | Any RSV vaccine ever | Once (mRESVIA) | New Sept 14, 2026. Anyone who's had any RSV vaccine isn't eligible again. |
-| `imm.zoster` | 50+ | Shingrix × 2 | Once | **Not publicly funded in BC** (except FNHB Plan W clients 60+). `DISCUSS`, not a gap. |
+| `imm.zoster` | 50+ | Shingrix × 2 | Once | **Not publicly funded in BC** (except FNHB Plan W clients 60+). `DISCUSS`, not a gap (§9 #13). |
 
 Flags the engine needs for immunizations: Indigenous identity (self-identified only), LTC residence, pregnancy, immunocompromise, health care worker, GBMSM/2STNB. These are sensitive. They're only used for eligibility and never appear in aggregate reports.
 
@@ -209,7 +209,7 @@ Trigger: pregnancy coded, or an EDD or positive β-hCG in the last 40 weeks with
 | 36+ wks | GBS swab | `preg.gbs` |
 | Delivery | Syphilis test | `preg.delivery_syphilis` |
 
-Most prenatal care may be shared with a maternity clinic, so these are `NEVER_FOUND` by default and routed to the physician, not the MOA.
+Most prenatal care may be shared with a maternity clinic, so these are `NOT_FOUND` by default and routed to the physician, not the MOA.
 
 ---
 
@@ -260,14 +260,14 @@ Also age-triggered at 65+ and 75+: `imm.pcv20.65`, `imm.flu` (Fluad), `imm.rsv.o
 
 ### 8.1 Unrecognized conditions
 
-These find patients whose data already meets a diagnosis that isn't on their chart. They're cheap, high yield, and they feed the chronic monitoring rules. **They also matter for LFP.** From the Jul to Sep 2026 period, LFP panel complexity comes from the CIHI grouper using ICD-9 codes on MSP claims, so an uncoded diabetic or CKD patient is under-counted.
+These find patients whose data already meets a diagnosis that isn't on their chart. They're cheap, high yield, and they feed the chronic monitoring rules. They also matter for LFP, where panel complexity comes from ICD-9 codes on MSP claims, so an uncoded diabetic or CKD patient is under-counted.
 
 | Rule | Criteria | Not flagged if |
 |---|---|---|
 | `unrec.diabetes` | A1c ≥ 6.5% twice, or A1c ≥ 6.5% plus FPG ≥ 7.0, or FPG ≥ 7.0 twice (Diabetes Canada) | ICD-9 250 on problem list or claims, or a diabetes medication (metformin alone isn't enough: PCOS, prediabetes) |
 | `unrec.prediabetes` | A1c 6.0 to 6.4% or FPG 6.1 to 6.9 | Moves `dm.screen` to a 6 to 12 month interval rather than raising a new gap |
 | `unrec.ckd` | eGFR < 60 on 2 results ≥ 90 days apart, or ACR ≥ 3 mg/mmol twice ≥ 90 days apart | ICD-9 585 or a CKD problem-list entry |
-| `unrec.htn` | Office BP at or above threshold on ≥ 2 visits within 6 months | HTN code or an antihypertensive. **⚠ decide threshold** (§9). |
+| `unrec.htn` | Office BP at or above threshold on ≥ 2 visits within 6 months | HTN code or an antihypertensive. Threshold: automated office BP ≥ 135/85 (§9 #1). |
 | `unrec.osteoporosis` | Fragility fracture (hip, vertebra, wrist, humerus) at 50+ in imaging or claims | BMD in the last 3 years, or osteoporosis treatment |
 | `statin.indicated` | ASCVD, AAA > 3.0 cm or repaired, diabetes at 40+ (or 30+ with > 15 years' duration or microvascular disease), CKD at 50+, LDL ≥ 5.0 | On any statin, or documented statin intolerance or refusal |
 
@@ -279,7 +279,7 @@ Only runs for patients with the condition coded, or flagged by 8.1 and confirmed
 |---|---|---|---|---|
 | **Diabetes** | `dm.a1c` | A1c | 3 mo (6 mo if stable at target). Flag at > 6 mo. | BC Diabetes Care (rev. May 2026) |
 | | `dm.kidney` | ACR + eGFR | 12 mo | same |
-| | `dm.eye` | Retinal exam report | **⚠ decide:** 1 or 2 years (the guideline's own summary table and text disagree) | same |
+| | `dm.eye` | Retinal exam report | `DUE_SOON` at 1 y, `OVERDUE` at 2 y (§9 #3; the guideline's summary table and text disagree) | same |
 | | `dm.foot` | Foot / monofilament exam | 12 mo | same |
 | | `dm.bp` | BP | 6 mo | same (target < 130/80) |
 | | `dm.statin` | On statin if 40+, CVD, or complications | n/a | same |
@@ -313,11 +313,11 @@ Standard monitoring intervals from product monographs and common practice. Each 
 
 ---
 
-## 9. Decisions and conflicts to resolve
+## 9. Decisions on contested rules
 
-My recommendation is listed first in each row. None of these block the build, since the rule files carry the choice as a parameter.
+Decided 2026-09-24: all 13 recommendations accepted as written. Each one is a parameter in its rule file, so changing a decision later means editing that file, not the engine.
 
-| # | Question | Options | Recommendation |
+| # | Question | Options considered | Decision |
 |---|---|---|---|
 | 1 | Hypertension diagnostic threshold for `unrec.htn` | BC (automated office ≥ 135/85) vs Hypertension Canada 2025 (≥ 130/80, confirmed out of office) | **BC 135/85.** Fewer false positives on a panel sweep. Show the HC 2025 target (SBP < 130) on the card. |
 | 2 | Osteoporosis screening | CTFPHC FRAX-first for women 65+ vs Osteoporosis Canada BMD for all 70+ | **FRAX-first for women 65+** (it fits MSP's funding rules). Men 70+ as `DISCUSS`. |

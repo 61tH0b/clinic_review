@@ -1,0 +1,34 @@
+id: cervix.hpv
+version: 1
+title: Cervical cancer screening (HPV)
+category: A
+subtype: cancer
+status: shadow
+source:
+  name: BC Cancer Cervix Screening, Screening Guidelines (May 2026)
+  url: https://www.bccancer.bc.ca/screening/health-professionals/cervix
+  checked: 2026-09-22
+decision: catalog §9 #6 (HIV counts as immunocompromised)
+population:
+  age: {min: 25, max: 69}
+  sex_at_birth: F
+  # These follow cervix.immunocompromised (3-yearly) and cervix.post_treatment
+  none_of: [risk.immunocompromised, dx.hiv, hx.cin2_plus_or_ais]
+exclusions: [proc.hysterectomy_total, hx.neovagina]
+satisfied_by:
+  # The Cervical Cancer Screening Lab prints the next due date, so trust it when present.
+  # Positive results are handled by the cervix.loop rules, not here.
+  - {concept: obs.hpv_test, value_in: [negative], within_months: 60, use_reported_next_due: true}
+  - {concept: obs.cervical_cytology, value_in: [nilm], within_months: 36, use_reported_next_due: true}
+declined: {concept: decline.cervix_screening, valid_months: 24}
+evidence_sources:
+  - labs
+  - documents.lab
+  - history.medical
+  - history.surgical
+  - medications
+action:
+  kind: self_refer
+  note: Self-screening kit (1-877-702-6566 or online), or book a provider-collected test.
+review_by: 2027-01-15  # the lab moves to HPV on LBC for 25+ in Jan 2027
+owner: ali

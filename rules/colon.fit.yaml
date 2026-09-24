@@ -1,0 +1,35 @@
+id: colon.fit
+version: 1
+title: Colorectal cancer screening, average risk
+category: A
+subtype: cancer
+status: shadow
+source:
+  name: BC Cancer Colon Screening, Screening Guidelines (May 2026)
+  url: https://www.bccancer.bc.ca/screening/health-professionals/colon
+  checked: 2026-09-22
+decision: catalog §9 #8 (40 to 49 at average risk isn't shown)
+population:
+  age: {min: 50, max: 74}
+  # Family history and prior polyps follow colon.family_history and colon.surveillance
+  none_of: [risk.colon_family_history_high, hx.colon_polyps]
+exclusions: [dx.colorectal_cancer, dx.ibd, proc.colectomy_total]
+satisfied_by:
+  - {concept: obs.fit, value_in: [negative], within_months: 24}
+  - {concept: proc.colonoscopy, within_months: 120}
+  - {concept: proc.flex_sig, within_months: 120}
+  - {concept: imaging.ct_colonography, within_months: 60}
+declined: {concept: decline.colon_screening, valid_months: 24}
+evidence_sources:
+  - labs
+  - documents.consults
+  - documents.hospital
+  - documents.diagnostic_imaging
+  - history.medical
+  - history.surgical
+  - history.family
+action:
+  kind: order
+  note: Physician or NP orders FIT; patients can't self-order. Requisition box "FIT (Age 50-74 asymptomatic q2y) Copy to Colon Screening Program".
+review_by: 2027-03-01  # BC Cancer is "investigating" starting at 45
+owner: ali

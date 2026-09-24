@@ -1,0 +1,22 @@
+id: dm.eye
+version: 1
+title: Diabetic retinal exam
+category: A
+subtype: chronic
+status: shadow
+source:
+  name: BC Guidelines, Diabetes Care (rev. May 2026)
+  url: https://www2.gov.bc.ca/assets/gov/health/practitioner-pro/bc-guidelines/diabetescare-guideline-may-2026.pdf
+  checked: 2026-09-22
+decision: catalog §9 #3 (DUE_SOON at 1 year, OVERDUE at 2)
+population:
+  any_of: [dx.diabetes]
+satisfied_by:
+  - {concept: exam.retinal, within_months: 12}
+grace_months: 12
+evidence_sources: [documents.consults, documents.historical, history.medical]
+action:
+  kind: book
+  note: Retinal exam report from optometry or ophthalmology.
+review_by: 2027-05-31
+owner: ali
