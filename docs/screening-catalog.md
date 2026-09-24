@@ -78,7 +78,7 @@ Screening-result loops:
 | Rule | Population | Satisfied by | Interval | Notes |
 |---|---|---|---|---|
 | `lung.eligibility` | 55 to 74, current or former regular commercial tobacco smoker | Program risk assessment or LDCT `doc` | 2 y (1 y or 3 mo per result) | **Patient self-refers by phone**: 1-877-717-5864. The program calculates PLCOm2012 (≥ 1.5%), so the engine flags "possibly eligible", not "eligible". |
-| `lung.smoking_unknown` | 55 to 74 with no smoking status recorded | Smoking status in `vital`/`note` | Once | **This is the real gap for most patients.** State `UNKNOWN`; action is "record smoking history". |
+| `lung.smoking_unknown` | 55 to 74 with no smoking status recorded | Smoking status in `vital`/`note` | Once | **This is the real gap for most patients.** State `UNKNOWN`; action is "record smoking history". Implemented as the `UNKNOWN` state of `lung.eligibility`, not a separate rule file. |
 
 Exclusions: prior lung cancer, active nodule surveillance, home O2 or severe COPD, heart failure, dialysis, other active cancer.
 

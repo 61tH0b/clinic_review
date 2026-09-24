@@ -1,6 +1,6 @@
 # Clinic Review: panel-wide screening and care-gap review
 
-Plan v0.6, 2026-09-24. Bonne Vie Medical Clinic, Coquitlam BC. EMR: TELUS Collaborative Health Record (CHR, formerly Input Health).
+Plan v0.7, 2026-09-24. Bonne Vie Medical Clinic, Coquitlam BC. EMR: TELUS Collaborative Health Record (CHR, formerly Input Health).
 
 **Goal:** for every active longitudinal patient aged 0 to 100, produce a verifiable list of what's due, overdue, or left open, using BC rules, and turn it into work the clinic actually closes.
 
@@ -172,39 +172,41 @@ A curated table maps ICD-9 codes, free-text synonyms, lab test names, drug names
 
 ### 6.2 Rule format
 
-One YAML file per rule, readable by a clinician and reviewed like code:
+**Decided 2026-09-24: YAML rules plus a small Python evaluator** (`src/clinic_review/engine/`). One YAML file per rule in `rules/`, readable by a clinician and reviewed like code. [`rules/README.md`](../rules/README.md) is the field reference. Unknown keys fail validation, so a typo can't quietly change who gets flagged. An abridged `rules/colon.fit.yaml`:
 
 ```yaml
-id: colon.fit.average_risk
+id: colon.fit
 version: 1
+title: Colorectal cancer screening, average risk
 category: A
-subtype: cancer_screening
-title: Colorectal cancer screening, average risk (FIT)
+subtype: cancer
+status: shadow
 source:
-  name: BC Cancer Colon Screening Program, Screening Guidelines May 2026
+  name: BC Cancer Colon Screening, Screening Guidelines (May 2026)
   url: https://www.bccancer.bc.ca/screening/health-professionals/colon
   checked: 2026-09-22
 population:
   age: {min: 50, max: 74}
-  not: [colon.high_risk_family_history, dx.ibd, dx.colorectal_cancer]
-exclusions: [proc.colectomy_total]
+  none_of: [risk.colon_family_history_high, hx.colon_polyps]
+exclusions: [dx.colorectal_cancer, dx.ibd, proc.colectomy_total]
 satisfied_by:
-  - {concept: obs.fit, within_months: 24}
+  - {concept: obs.fit, value_in: [negative], within_months: 24}
   - {concept: proc.colonoscopy, within_months: 120}
   - {concept: proc.flex_sig, within_months: 120}
   - {concept: imaging.ct_colonography, within_months: 60}
-evidence_sources: [labs, documents.consults, documents.hospital, history.surgical]
-declined_valid_months: 24
-action:
-  kind: order            # physician orders FIT; patients can't self-order
-  mode: book_or_order    # MOA books, or physician orders at next visit
-review_by: 2027-03-01    # BC Cancer is "investigating" starting at 45
+declined: {concept: decline.colon_screening, valid_months: 24}
+evidence_sources: [labs, documents.consults, documents.hospital, documents.diagnostic_imaging,
+                   history.medical, history.surgical, history.family]
+action: {kind: order}   # physician or NP orders FIT; patients can't self-order
+review_by: 2027-03-01   # BC Cancer is "investigating" starting at 45
 owner: ali
 ```
 
-Every rule carries its source, the date it was checked, a review-by date, and an owner. BC changed its cervix, breast, colon follow-up, and pneumococcal rules between 2024 and 2026, and the federal Task Force was wound down in March 2026. CI fails when any rule is past its review-by date. `evidence_sources` also tells the walker which screens to open (section 5.2).
+Every rule carries its source, the date it was checked, a review-by date, and an owner. BC changed its cervix, breast, colon follow-up, and pneumococcal rules between 2024 and 2026, and the federal Task Force was wound down in March 2026. CI fails when any rule is past its review-by date (`python -m clinic_review.engine check rules`). `evidence_sources` also tells the walker which screens to open (section 5.2).
 
-**⚠ decide:** YAML here plus a small Python evaluator, or ACA-style Python modules (the spec's suggestion, reusing ACA's registry and `missing_inputs`)? I'd keep the *content* in YAML either way, so you can edit rules without touching code, and have a thin ACA module load it.
+Loop rules (`kind: loop`) use `trigger` and `followed_by` in place of `satisfied_by`, e.g. a positive FIT with no colonoscopy report within 180 days. Every rule starts in `status: shadow` and moves to `live` after the chart audit (section 9).
+
+The first seven rules are in: `colon.fit`, `colon.loop.fit_positive`, `breast.avg.50_74`, `breast.avg.40_49`, `cervix.hpv`, `lung.eligibility`, `dm.eye`. The rest of the catalog follows the same format.
 
 ### 6.3 Evidence states
 
@@ -213,18 +215,20 @@ Every eligible patient gets exactly one state per rule. The review queue shows t
 | State | Meaning | Queue action |
 |---|---|---|
 | `UP_TO_DATE` | Qualifying evidence inside the interval | Hidden |
-| `DUE_SOON` | Due within 90 days | Batch into recall |
+| `DUE_SOON` | Due within 90 days, or past due but inside the rule's grace period (diabetic eye exam: 1 year) | Batch into recall |
 | `OVERDUE` | Evidence found, but older than the interval | Queue |
 | `NOT_FOUND` | Eligible, nothing found in any source listed | "Not found in chart, check CareConnect" |
 | `EXCLUDED` | Documented exclusion | Hidden, evidence kept |
 | `DECLINED` | Informed refusal documented in the last N years | Re-offer after N years |
 | `DISCUSS` | Shared decision, not a gap (breast 40 to 49, PSA, zoster, colon 75 to 84) | Pre-visit card only, never a recall |
-| `UNKNOWN` | Can't decide, an input's missing | The missing input becomes the task ("record smoking history") |
+| `UNKNOWN` | Can't decide: an input's missing, or a screen the rule reads wasn't walked for this patient | The missing input becomes the task ("record smoking history") |
 | `NOT_ELIGIBLE` | Outside population | Hidden |
 
 ### 6.4 Engine
 
 Deterministic Python, no LLM. In: the normalized store, the concept layer, and the rules. Out: `(patient_id, rule_id, rule_version, state, due_date, evidence_ids[], searched_sources[], run_id)`. The same inputs always give the same output, so every run can be diffed against the last.
+
+Built so far: the evaluator (`engine/evaluate.py`) takes one rule, one patient's facts, and an as-of date, and returns the state with its due date, evidence ids, sources searched, and missing inputs. A gap on a patient whose relevant screens weren't all walked comes back `UNKNOWN`, never `NOT_FOUND`. Still to build: the fact store that feeds it, the ledger, and `run_id`.
 
 ---
 
@@ -286,7 +290,7 @@ Audit and extraction results stay on the Mac. Only the per-rule pass/fail decisi
 | When | Work | Spec phase | Exit criteria |
 |---|---|---|---|
 | **Week 1** | Walker built and tested against the fake EMR (done). Phase 0: `walker record` on 5 test charts, then write the local CHR profile. Catalog sign-off. | 0 (map) | Every chart section the rules need has a known route and field list |
-| **Weeks 1 to 2** | Concept layer v1, rule format, evaluator, cancer screening and loop rules, synthetic suite in CI. Roster pass on your panel with `--limit 50`. | 0 and 1 | CI is green on every edge case |
+| **Weeks 1 to 2** | Rule format and evaluator (done, first seven rules in shadow mode, edge-case suite in CI). Concept layer v1, remaining cancer screening and loop rules. Roster pass on your panel with `--limit 50`. | 0 and 1 | CI is green on every edge case |
 | **Weeks 3 to 4** | Walker on your first 50 charts. Remaining adult screening, immunizations, unrecognized conditions, chronic monitoring for DM, HTN, CKD. Rules in shadow mode. | 1 (walk and store) | Zero wrong-patient mismatches on 50 charts |
 | **Weeks 5 to 6** | On-device OCR and extraction, model chosen. First full-panel walk (roster pass, then eligibility pass). 100-chart audit. | 3 (category A) | Extraction check and audit thresholds met |
 | **Weeks 7 to 8** | Pediatrics (Rourke, Greig, childhood and school immunizations), prenatal, life-stage rules. Queue live for rules that passed. Weekly incremental walks. | 3 continued | First month of closure-rate data |
@@ -318,10 +322,9 @@ Decided 2026-09-23: Mac mini with 24 GB, your panel only for v1, 36-month activi
 
 Decided 2026-09-24: all 13 contested rules in catalog §9, as recommended. That includes BC's 135/85 hypertension threshold, FRAX-first for women 65+ (men 70+ as `DISCUSS`), and breast 40 to 49 as `DISCUSS`.
 
-Still open:
+Decided 2026-09-24: rules are YAML plus a small Python evaluator (section 6.2).
 
-1. **Tell TELUS** before the first overnight walk?
-2. **Rule engine format** (section 6.2): YAML plus a small Python evaluator, or ACA-style modules that load the same YAML?
+Still open: **tell TELUS** before the first overnight walk?
 
 ---
 

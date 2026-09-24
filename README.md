@@ -29,6 +29,15 @@ python -m pytest
 
 The walker tests drive a real headless Chromium against a fake CHR-like app with synthetic patients (`tests/fake_emr.py`).
 
+## Rules
+
+One YAML file per rule in [`rules/`](rules/), evaluated by `src/clinic_review/engine/`. [`rules/README.md`](rules/README.md) has the fields. After editing a rule:
+
+```sh
+python -m clinic_review.engine check rules   # validates every rule, fails on any past review_by
+python -m pytest tests/test_engine.py
+```
+
 ## Running the walker on the clinic Mac
 
 Run this under the separate data account (PLAN.md section 2), never the dev account.
