@@ -83,7 +83,7 @@ Results are only useful once someone can act on them. This is needed the moment 
 - **Format:** static HTML (one self-contained file, no external assets) plus CSV. Nothing leaves the Mac.
 - **Run diff:** between two ledger runs, per rule: newly open, closed, still open, and changed state. It's aggregate on the command line and patient-level only in the written files. Flag when the two runs used different ruleset digests.
 - **"Already done" feedback:** a small table where a reviewer marks a result as done elsewhere, declined, or not applicable, with a date and an optional evidence note. Feed it back as facts with `source: attestation`, so it's evidence like any other. The rule decides what it satisfies, with no special case in the engine.
-  - **Clinical choice for Ali:** how long an attestation counts.
+  - **Decided 2026-10-02:** an attestation has no lifetime of its own. It's a dated fact for the event it attests, and the rule's interval decides when it's next due. "Declined" lapses after 12 months. Attestations satisfy events only (FIT, mammogram, HPV test, eye exam), never eligibility inputs such as pack-years or hysterectomy type, which still need chart evidence. One click must never drop a patient out of a program.
 - **Acceptance:** tests against the synthetic pipeline run in `tests/test_pipeline.py`. The worklists contain the expected patients, nothing is printed to stdout but counts, the diff is correct across two runs, and an attestation closes a gap on the next run.
 
 ### WP2. Measurement rules (engine extension), hard
@@ -143,7 +143,8 @@ Report-based loops (BI-RADS, colonoscopy findings and recommended interval, the 
 
 ### WP7. Small items, folded into whichever package touches the area
 
-- **`unclear_if` for rules:** a concept that makes a rule `UNKNOWN` with a task. First use: `proc.hysterectomy_unspecified` on `cervix.hpv`, with the task "confirm hysterectomy type". Recommended, but confirm with Ali.
+- **`unclear_if` for rules:** a concept that makes a rule `UNKNOWN` with a task. First use: `proc.hysterectomy_unspecified` on `cervix.hpv`, with the task "confirm hysterectomy type". Decided 2026-10-02: do it.
+- **Breast implants:** stay an exclusion on `breast.avg.*` (BC Cancer doesn't do screening mammograms with implants, see docs/sources.md), but the worklist should show them as a task, "arrange diagnostic mammogram", not as a silent `EXCLUDED`.
 - **Denominator:** a primary provider check if CHR exposes it, and "eligible within 90 days" counts (PLAN 4).
 - **Synthea bulk run:** for performance on a 1,500-patient synthetic panel.
 
@@ -154,8 +155,6 @@ Report-based loops (BI-RADS, colonoscopy findings and recommended interval, the 
 
 ## Open questions for Ali (don't decide these alone)
 
-- How long an "already done" attestation counts (WP1).
-- `proc.hysterectomy_unspecified` turns `cervix.hpv` `UNKNOWN` (recommended) vs staying a `NOT_FOUND` gap (WP7).
-- Breast implants are listed as an exclusion in the catalog and in `breast.avg.*`. Re-check this against BC Cancer's current breast screening guidance before the value sets are signed.
-- Worklist format and where it lives on the Mac (WP1). The recommendation is self-contained HTML plus CSV in a folder under the data account.
+Decided 2026-10-02 (see PLAN section 12): attestation handling, hysterectomy-unspecified as `UNKNOWN`, breast implants kept as an exclusion with a task, and worklists as HTML plus CSV in a folder under the data account.
+
 - Which CHR screen lists upcoming appointments, for the pre-visit card. It needs Phase 0.

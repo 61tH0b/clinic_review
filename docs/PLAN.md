@@ -391,6 +391,8 @@ Decided 2026-09-24: rules are YAML plus a small Python evaluator (section 6.2).
 
 Decided 2026-10-02: TELUS isn't involved in the project, so there's no need to inform them.
 
+Decided 2026-10-02 (WP1 attestations): an "already done" attestation has no lifetime of its own. It becomes a dated fact for the event it attests (a FIT, a mammogram, an HPV test, an eye exam), and the rule's own interval decides when it's next due. A "declined" attestation lapses after 12 months. Attestations count for events only, never for eligibility inputs (pack-years, hysterectomy type, risk factors), which still need chart evidence. Also decided: `proc.hysterectomy_unspecified` turns `cervix.hpv` `UNKNOWN`; breast implants stay an exclusion (BC Cancer doesn't screen them) but surface as a task to arrange a diagnostic mammogram; worklists live in a folder under the data account, as self-contained HTML plus CSV. The appointment screen waits for Phase 0.
+
 Nothing open. The next decisions come with the roadmap: value set sign-off, and which rules go live after the audit.
 
 ---
