@@ -1,10 +1,10 @@
 # Handoff: clinic_review
 
-Updated 2026-10-02 03:06 PDT for WP1 (0.2.0). Base `eccbccca258c1552667bc7c7719a5d84fdac963f`
+Updated 2026-10-02 03:10 PDT for WP1 (0.2.0). Base `eccbccca258c1552667bc7c7719a5d84fdac963f`
 on `claude/clinic-screening-gaps-plan-9hubbe` (PR #1, still open). The base had 192 passing
 synthetic tests. WP1 status below is local verification; CI isn't inferred from local tests.
 
-## WP1 status, 2026-10-02 03:06 PDT
+## WP1 status, 2026-10-02 03:10 PDT
 
 - Built on `gpt/wp1-worklists-run-diff`, with rollback tag `pre-wp1` at the base.
 - Local worklists: self-contained HTML plus CSV per audience/action, category B first,
@@ -23,6 +23,11 @@ synthetic tests. WP1 status below is local verification; CI isn't inferred from 
   [wp1-design.md](wp1-design.md) describe the implementation and limitation.
 - Deviation: shared queue checked read-only because this package's explicit repository
   boundary forbids sibling edits. Ownership is recorded in `TASKS.md`. No conflict found.
+- Implementation `4e4d3f7` is pushed, authored by Aya Health Technologies Inc.
+  <admin@autochart.ai>. [Draft PR #2](https://github.com/61tH0b/clinic_review/pull/2)
+  targets the Claude base; it's attached to the review chat. No merge, default-branch
+  change, clinical enablement, or WP2 work. As of this timestamp, CI rules/no-phi jobs
+  pass and test jobs are running. Confirm the final head's CI before review/merge.
 
 ## Read these first, in this order
 
@@ -83,6 +88,7 @@ walker captures -> raw store -> fact store -> cohort -> concept layer + derived 
 | `concepts/` | Value sets: MSP WHO ICD-9, text, labs, documents, plus extracted and derived concepts. Rows become facts; skips record why a row didn't map. | `ConceptLayer`, `python -m clinic_review.concepts check` |
 | `engine/` | Strict YAML rules and the deterministic evaluator. Interval and loop rules, population, exclusions, requires, grace, the reported next-due date, declines, discuss mode. | `evaluate`, `python -m clinic_review.engine check rules` |
 | `pipeline/` | Cohort split (PLAN 4), then every rule on the active cohort, then the ledger. Prints aggregates only. | `python -m clinic_review.pipeline evaluate` |
+| `report/` | Read-only completed-run reports: local HTML/CSV worklists and run diffs, aggregate stdout, and capture-only feedback validation | `python -m clinic_review.report worklists\|diff\|feedback-check` |
 | `rules/` | 7 rules, all `status: shadow` | |
 | `valuesets/` | 8 files, 70 concepts, all `status: draft` | |
 

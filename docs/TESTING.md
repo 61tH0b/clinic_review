@@ -1,11 +1,12 @@
 # Interactive test registry
 
-Current state: 0.2.0 local CLI/library source, awaiting draft review; no deployment or
+Current state: 0.2.0 local CLI/library source, [draft PR #2](https://github.com/61tH0b/clinic_review/pull/2)
+awaiting Ali's review; implementation commit `4e4d3f7` is pushed. No deployment or
 real-patient validation. `python -m clinic_review.report --version` identifies the
 source SHA and commit time. HTML also shows UTC generation time. Rules remain shadow
 and value sets draft; attestation evaluation is disabled pending Ali's policy.
 
-Updated 2026-10-02 03:06 PDT.
+Updated 2026-10-02 03:10 PDT.
 
 | Title | Where to run | Description | Version/build | Status + date |
 |---|---|---|---|---|
