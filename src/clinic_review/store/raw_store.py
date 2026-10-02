@@ -163,6 +163,51 @@ class RawStore:
                 body=self._sealer.open(body_s, _aad(cid, scr, "body")),
             )
 
+    def sweep_captures(self, chr_id: str, sweep: str) -> dict[str, list[Capture]]:
+        """Per screen, the captures from the latest run in this sweep that kept any.
+
+        A stopped run can leave a partial screen behind and the resumed run captures it
+        again, so only the latest run's set for each screen counts."""
+        latest = dict(
+            self._db.execute(
+                "SELECT c.screen, c.run_id FROM captures c JOIN runs r ON r.run_id = c.run_id"
+                " WHERE c.chr_id = ? AND r.sweep = ? AND c.id IN"
+                " (SELECT MAX(c2.id) FROM captures c2 JOIN runs r2 ON r2.run_id = c2.run_id"
+                "  WHERE c2.chr_id = ? AND r2.sweep = ? GROUP BY c2.screen)",
+                (chr_id, sweep, chr_id, sweep),
+            ).fetchall()
+        )
+        out: dict[str, list[Capture]] = {screen: [] for screen in latest}
+        rows = self._db.execute(
+            "SELECT run_id, screen, status, content_type, captured_at, url_sealed, body_sealed"
+            " FROM captures WHERE chr_id = ? ORDER BY id",
+            (chr_id,),
+        )
+        for run_id, scr, status, ctype, at, url_s, body_s in rows:
+            if latest.get(scr) != run_id:
+                continue
+            out[scr].append(
+                Capture(
+                    chr_id=chr_id,
+                    screen=scr,
+                    status=status,
+                    content_type=ctype,
+                    captured_at=at,
+                    url=self._sealer.open(url_s, _aad(chr_id, scr, "url")).decode(),
+                    body=self._sealer.open(body_s, _aad(chr_id, scr, "body")),
+                )
+            )
+        return out
+
+    def screens_ok(self, chr_id: str, sweep: str) -> set[str]:
+        """Screens that loaded cleanly for this patient at least once in the sweep."""
+        rows = self._db.execute(
+            "SELECT DISTINCT a.screen FROM audit a JOIN runs r ON r.run_id = a.run_id"
+            " WHERE a.chr_id = ? AND r.sweep = ? AND a.outcome = 'ok'",
+            (chr_id, sweep),
+        )
+        return {row[0] for row in rows}
+
     # audit
 
     def audit(

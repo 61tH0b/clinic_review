@@ -32,7 +32,7 @@ def test_patient_id_is_escaped_in_patterns():
 
 
 def test_unknown_screen_rejected(tmp_path):
-    text = PROFILE.read_text().replace("chart_screens: [labs, files]", "chart_screens: [labs, nope]")
+    text = PROFILE.read_text().replace("chart_screens: [labs, problems, medications, files]", "chart_screens: [labs, nope]")
     bad = tmp_path / "bad.yaml"
     bad.write_text(text)
     with pytest.raises(ValueError, match="nope"):

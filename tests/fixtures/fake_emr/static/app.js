@@ -24,6 +24,9 @@ async function route() {
   } else if ((m = h.match(/^\/patients\/([^/]+)\/labs$/))) {
     const labs = await api(`/api/patients/${m[1]}/labs`);
     view.textContent = `labs: ${labs.results.length}`;
+  } else if ((m = h.match(/^\/patients\/([^/]+)\/(problems|medications)$/))) {
+    const data = await api(`/api/patients/${m[1]}/${m[2]}`);
+    view.textContent = `${m[2]}: ${data[m[2]].length}`;
   } else if ((m = h.match(/^\/patients\/([^/]+)\/files$/))) {
     const files = await api(`/api/patients/${m[1]}/files`);
     for (const f of files.files) {

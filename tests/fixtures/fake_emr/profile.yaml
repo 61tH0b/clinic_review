@@ -16,6 +16,12 @@ screens:
   labs:
     route: "/#/patients/{patient_id}/labs"
     capture: ["/api/patients/{patient_id}/labs$"]
+  problems:
+    route: "/#/patients/{patient_id}/problems"
+    capture: ["/api/patients/{patient_id}/problems$"]
+  medications:
+    route: "/#/patients/{patient_id}/medications"
+    capture: ["/api/patients/{patient_id}/medications$"]
   files:
     route: "/#/patients/{patient_id}/files"
     capture:
@@ -25,7 +31,7 @@ screens:
     allow_unbound: true   # file bytes are fetched by file id, not patient id
 
 roster_screens: [summary]
-chart_screens: [labs, files]
+chart_screens: [labs, problems, medications, files]
 
 # JSON keys that name the patient a response is about. Every value found must match.
 patient_id_keys: [patient_id]

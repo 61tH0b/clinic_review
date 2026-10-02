@@ -1,0 +1,61 @@
+# Facts mapping for the fake EMR used in tests: where the rows are in each screen's JSON.
+# It's also the format reference for the real CHR mapping, written from the Phase 0 map,
+# which lives in local/ on the clinic Mac and never goes in git.
+name: fake-emr
+
+patient:
+  screen: summary
+  response: "/api/patients/[^/]+$"
+  dob: dob
+  sex_at_birth: sex
+  sex_values: {F: F, M: M}
+  status: status
+  include_statuses: [active]
+  last_visit: last_visit
+
+screens:
+  summary:
+    sources: [demographics]
+  labs:
+    sources: [labs]
+    rows:
+      - response: "/labs$"
+        items: results
+        id: id
+        date: collected
+        lab_name: name
+        result: value
+  problems:
+    # The fake app keeps everything history-like on one problem list
+    sources: [history.medical, history.surgical, history.family, risk_factors]
+    rows:
+      - response: "/problems$"
+        items: problems
+        source: history.medical
+        id: id
+        date: onset
+        text: description
+        code: icd9
+  medications:
+    sources: [medications]
+    rows:
+      - response: "/medications$"
+        items: medications
+        id: id
+        date: seen  # a current list: dated the day the walker saw it
+        text: [name, sig]
+  files:
+    sources: [documents.diagnostic_imaging, documents.consults, documents.hospital, documents.lab, documents.historical]
+    rows:
+      - response: "/files$"
+        items: files
+        id: file_id
+        date: date
+        text: title
+        source_by: tag
+        source_values:
+          Diagnostic Imaging: documents.diagnostic_imaging
+          Consults: documents.consults
+          Hospital: documents.hospital
+          Lab: documents.lab
+          Historical Chart: documents.historical

@@ -118,9 +118,9 @@ def test_recorder_keeps_shapes_not_values(cdp_url, fake_emr):
         recorder.watch(context)
         page = context.new_page()
         try:
-            page.goto(fake_emr.url + "/#/patients/1004/labs")
+            page.goto(fake_emr.url + "/#/patients/1001/labs")
             page.wait_for_timeout(800)
-            page.goto(fake_emr.url + "/#/patients/1004/files")
+            page.goto(fake_emr.url + "/#/patients/1001/files")
             page.wait_for_timeout(800)
         finally:
             page.close()
@@ -128,6 +128,6 @@ def test_recorder_keeps_shapes_not_values(cdp_url, fake_emr):
     lines = [json.loads(line) for line in text.splitlines()]
     labs = next(line for line in lines if line["response"] == "/api/patients/{id}/labs")
     assert labs["page"] == "/#/patients/{id}/labs"
-    assert labs["shape"]["results"] == [{"id": "str", "name": "str", "patient_id": "str", "value": "str"}]
+    assert labs["shape"]["results"] == [{"collected": "str", "id": "str", "name": "str", "patient_id": "str", "value": "str"}]
     assert any(line["content_type"] == "application/pdf" for line in lines)
-    assert "1004" not in text and "HbA1c" not in text
+    assert "1001" not in text and "HbA1c" not in text and "Mammogram" not in text

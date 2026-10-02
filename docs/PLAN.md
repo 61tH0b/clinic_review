@@ -1,6 +1,6 @@
 # Clinic Review: panel-wide screening and care-gap review
 
-Plan v0.8, 2026-10-02. Bonne Vie Medical Clinic, Coquitlam BC. EMR: TELUS Collaborative Health Record (CHR, formerly Input Health).
+Plan v0.9, 2026-10-02. Bonne Vie Medical Clinic, Coquitlam BC. EMR: TELUS Collaborative Health Record (CHR, formerly Input Health).
 
 **Goal:** for every active longitudinal patient aged 0 to 100, produce a verifiable list of what's due, overdue, or left open, using BC rules, and turn it into work the clinic actually closes.
 
@@ -239,7 +239,16 @@ Every eligible patient gets exactly one state per rule. The review queue shows t
 
 Deterministic Python, no LLM. In: the normalized store, the concept layer, and the rules. Out: `(patient_id, rule_id, rule_version, state, due_date, evidence_ids[], searched_sources[], run_id)`. The same inputs always give the same output, so every run can be diffed against the last.
 
-Built so far: the evaluator (`engine/evaluate.py`) takes one rule, one patient's facts, and an as-of date, and returns the state with its due date, evidence ids, sources searched, and missing inputs. A gap on a patient whose relevant screens weren't all walked comes back `UNKNOWN`, never `NOT_FOUND`. Still to build: the fact store that feeds it, the ledger, and `run_id`.
+Built 2026-10-02, end to end:
+
+    captures (one sweep) -> fact store -> cohort -> concept layer + derived -> every rule -> ledger
+
+- **Fact store** (`src/clinic_review/facts/`): reads each patient's latest captures in the sweep through a facts mapping. The mapping says where the rows are in each screen's JSON and which field is the date, code, text, lab name, result, or document type. It's CHR-specific, like the walker profile: the real one is written from the Phase 0 map and lives in `local/`, and `tests/fixtures/fake_emr/facts.yaml` is the format reference. A screen counts as searched only if it loaded cleanly in that sweep. Current lists (medications) are dated the day the walker saw them.
+- **Cohort** (section 4): active patients seen in the last 36 months get rules. Not seen in 36 months goes to outreach, inactive or deceased is excluded, and a patient with no screen loaded is "not walked".
+- **Ledger** (`store/ledger.py`, in the same encrypted-account SQLite file): per run, the cohort group, every rule result with its evidence ids, and every skip. Each run records a digest of the rules and value sets it used, so two runs can be diffed knowing whether the logic changed.
+- **Command:** `python -m clinic_review.pipeline evaluate`. It prints aggregates only: cohort counts, counts by rule and state, and the top skip reasons. Run it with `--cohort-only` first to check the denominator.
+
+Proven on synthetic charts: the walker walks the fake EMR, and the pipeline gets each patient's expected state (an overdue positive-FIT loop, an overdue diabetic eye exam, a patient on adalimumab moved off the routine cervix rule, outreach and excluded patients kept out of the rule run).
 
 ---
 
@@ -296,10 +305,55 @@ Audit and extraction results stay on the Mac. Only the per-rule pass/fail decisi
 
 ---
 
-## 10. Phasing
+## 10. Roadmap
 
-| When | Work | Spec phase | Exit criteria |
+Updated 2026-10-02. "You" is the physician on the clinic Mac; everything patient-level happens there. The repo side is built and tested on synthetic charts, so the critical path now runs through the Mac.
+
+### Done (PR #1)
+
+| Piece | State |
+|---|---|
+| Plan, catalog, sources | All 13 contested rules decided. TELUS not involved. |
+| Walker | Playwright over CDP, read-only, wrong-patient guard, canary, off-hours pacing, resume. 8 browser tests. |
+| Raw store | SQLite, AES-256-GCM sealed bodies, key in the macOS Keychain |
+| Rule engine | Strict YAML rules, deterministic evaluator, 7 rules in shadow mode |
+| Concept layer | 8 value sets, 70 concepts, MSP WHO ICD-9 verified. Draft until signed. |
+| Fact store, pipeline, ledger | Captures to ledger on synthetic charts, aggregates-only output |
+| Guards | PHN check in pre-commit and CI, stale-rule and undefined-concept checks in CI |
+
+### Next: first real results on 50 charts
+
+| Step | Who | Effort | Exit gate |
 |---|---|---|---|
+| 1. Merge PR #1, switch the default branch to `main` | You | 10 min | `main` has everything |
+| 2. Set up the Mac: separate macOS data account, FileVault, clone, `pip install -e ".[mac]"`, walker Chrome profile, log in to CHR | You | 1 hr | `python -m pytest` green on the Mac |
+| 3. Phase 0: `walker record` while you click through 5 test charts | You | 20 min | `local/phase0-map.jsonl` has every screen the rules need (routes and keys only, no values) |
+| 4. Write `local/chr-profile.yaml` and `local/chr-facts.yaml` from the map, in a session on the Mac, never committed | Me, with you | 1 session | A dry run on the test charts reads demographics, problems, meds, labs, and documents |
+| 5. Pilot walk: `roster --limit 50`, then `charts --limit 50`, overnight | You | 1 night | Zero wrong-patient mismatches, spot-checked by hand against CHR |
+| 6. `pipeline evaluate --cohort-only`, then a full evaluate | You | 15 min | Denominator matches CHR's LFP dashboard within reason. Skip list reviewed. |
+| 7. Sign off the value sets, adding what the pilot's skip list shows | You, with me | 1 to 2 hrs | All 8 files `status: signed` |
+
+### Then: from counts to closed gaps
+
+| Work | Who | Why it's next |
+|---|---|---|
+| Queue export and pre-visit card (`report/`): patient-level lists, on the Mac only, with the evidence behind each state | Me | Results are only useful once someone can act on them |
+| Run diff and "already done" capture | Me | Shows what opened and closed between runs, and finds missing data sources |
+| Remaining cancer rules: breast FDR, high risk, chest radiation, 75+; cervix immunocompromised, post-treatment, exit at 70+; colon family history, surveillance, 75 to 84; screening-result loops; PSA-rising loop | Me | The concepts mostly exist. Each rule is a YAML file plus edge tests. |
+| Per-patient screen planning from `evidence_sources` | Me | Cuts walk volume before the full-panel walk |
+| Full-panel walk (roster pass, then eligibility pass) | You | Baseline numbers for the whole panel |
+
+### After that
+
+| Work | Gate |
+|---|---|
+| On-device OCR (Apple Vision) and extraction (local model on the Mac mini, Azure Canada East fallback). 200-document extraction check. | Per-field accuracy clears the bar before report-based loops (BI-RADS, colonoscopy interval, HPV next due) go live |
+| 100-chart audit, stratified by age band | A rule moves from shadow to live at PPV ≥ 90% and sensitivity ≥ 85% (section 9) |
+| Adult screening, immunizations (vaccine to antigen value sets), unrecognized conditions, chronic monitoring for DM, HTN, CKD | Same audit gate per rule |
+| Pediatrics (Rourke, Greig, school immunizations), prenatal, life stage. Weekly incremental walks. | First month of closure-rate data |
+| Colleagues' panels. What becomes an Autochart.ai care-gap feature. | Productizing moves this from internal QI to a Health Canada SaMD question, which is its own decision |
+
+---|---|---|---|
 | **Week 1** | Walker built and tested against the fake EMR (done). Phase 0: `walker record` on 5 test charts, then write the local CHR profile. Catalog sign-off. | 0 (map) | Every chart section the rules need has a known route and field list |
 | **Weeks 1 to 2** | Rule format and evaluator (done, first seven rules in shadow mode, edge-case suite in CI). Concept layer v1 (done, draft until sign-off). Fact store, remaining cancer screening and loop rules. Roster pass on your panel with `--limit 50`. | 0 and 1 | CI is green on every edge case |
 | **Weeks 3 to 4** | Walker on your first 50 charts. Remaining adult screening, immunizations, unrecognized conditions, chronic monitoring for DM, HTN, CKD. Rules in shadow mode. | 1 (walk and store) | Zero wrong-patient mismatches on 50 charts |
@@ -316,7 +370,7 @@ Audit and extraction results stay on the Mac. Only the per-rule pass/fail decisi
 | "Gap" that's really data sitting outside CHR | `NOT_FOUND` state, CareConnect check, "already done" feedback |
 | Bad extraction giving false reassurance (wrong BI-RADS, wrong interval) | Exact-quote rule, extraction check, physician review of every screening-result loop |
 | CHR UI changes break the walker | Navigate by routes, not clicks. Versioned local profile. Self-check against a known test chart at the start of every run, and stop on mismatch. |
-| TELUS sees nights of chart views from one account | Human pacing, off-hours, eligibility-driven walk to cut volume. Decide up front whether to tell TELUS (the spec's open question). |
+| Nights of chart views from one account | Human pacing, off-hours, eligibility-driven walk to cut volume. TELUS isn't involved in the project (decided 2026-10-02): the walker reads your own panel in your own logged-in session, read-only. |
 | Session timeout or 2FA mid-run | Stop, alert, resume from the last completed patient |
 | Wrong-patient capture | Patient-ID match on every response. Mismatches are discarded and logged. |
 | Patient data reaching GitHub | `.gitignore`, pre-commit PHN guard, the same guard in CI, separate macOS account for the data |
@@ -335,7 +389,9 @@ Decided 2026-09-24: all 13 contested rules in catalog §9, as recommended. That 
 
 Decided 2026-09-24: rules are YAML plus a small Python evaluator (section 6.2).
 
-Still open: **tell TELUS** before the first overnight walk?
+Decided 2026-10-02: TELUS isn't involved in the project, so there's no need to inform them.
+
+Nothing open. The next decisions come with the roadmap: value set sign-off, and which rules go live after the audit.
 
 ---
 
@@ -350,15 +406,17 @@ clinic_review/
     check_no_phi.py     pre-commit and CI guard
   src/clinic_review/
     walker/             browser walker: session, capture, guard, pacing, Phase 0 recorder
-    store/              sealed raw capture store (SQLite, AES-256-GCM, key in macOS Keychain)
+    store/              sealed raw capture store (SQLite, AES-256-GCM, key in macOS Keychain) and the ledger
     concepts/           concept layer: matching, derived concepts, value set checks
-    engine/             evaluator, evidence states, ledger
+    engine/             evaluator, evidence states
+    facts/              fact store: captures to Observation rows through the facts mapping
+    pipeline/           evaluation runs: cohort, concept layer, rules, ledger
     extract/            OCR + extraction schemas and prompts. Model adapters: local (MLX/Ollama), Azure Canada East.
     report/             dashboard aggregates, queue export, pre-visit card
   tests/
     fake_emr.py         fake CHR-like server with synthetic patients
-    fixtures/           fake EMR app and its walker profile
-  local/                gitignored: CHR profile (routes, selectors, fields), model config
+    fixtures/           fake EMR app, its walker profile, and its facts mapping
+  local/                gitignored: CHR walker profile, CHR facts mapping, model config
 ```
 
 The encrypted data store lives outside the repo, under the separate macOS account.

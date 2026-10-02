@@ -52,12 +52,17 @@ open -na "Google Chrome" --args --user-data-dir="$HOME/ClinicReview/chrome-walke
 # 2. Phase 0: click through a few test charts while this records routes and response shapes (no values)
 python -m clinic_review.walker record --out local/phase0-map.jsonl
 
-# 3. Write local/chr-profile.yaml from that map, using tests/fixtures/fake_emr/profile.yaml as the template
+# 3. Write local/chr-profile.yaml and local/chr-facts.yaml from that map, using the
+#    tests/fixtures/fake_emr/ profile.yaml and facts.yaml as templates
 
 # 4. Pilot: roster pass on 50 patients, then their charts
 python -m clinic_review.walker roster --profile local/chr-profile.yaml --store "$HOME/ClinicReview/store.db" --limit 50
 python -m clinic_review.walker charts --profile local/chr-profile.yaml --store "$HOME/ClinicReview/store.db" --limit 50
 python -m clinic_review.walker status --store "$HOME/ClinicReview/store.db"
+
+# 5. Check the denominator first, then run every rule. Both print aggregates only.
+python -m clinic_review.pipeline evaluate --mapping local/chr-facts.yaml --store "$HOME/ClinicReview/store.db" --cohort-only
+python -m clinic_review.pipeline evaluate --mapping local/chr-facts.yaml --store "$HOME/ClinicReview/store.db"
 ```
 
 Runs only happen inside the profile's off-hours window unless you pass `--ignore-window`. A stopped run (logged out, wrong patient, a screen that won't load, a failed canary check) resumes where it left off when you run the same command again. Use `--sweep NAME` to start a fresh baseline.
