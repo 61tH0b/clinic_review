@@ -4,7 +4,7 @@ See docs/PLAN.md section 6 and rules/README.md.
 """
 from .evaluate import Result, evaluate
 from .facts import Fact, Patient
-from .rules import SOURCES, Rule, RuleError, check_rules, load_rule, load_rules, parse_rule
+from .rules import SOURCES, Rule, RuleError, check_rules, load_rule, load_rules, parse_rule, referenced_concepts
 from .states import State
 
 __all__ = [
@@ -20,4 +20,5 @@ __all__ = [
     "load_rule",
     "load_rules",
     "parse_rule",
+    "referenced_concepts",
 ]

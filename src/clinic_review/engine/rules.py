@@ -373,6 +373,22 @@ def load_rules(directory: str | Path) -> dict[str, Rule]:
     return rules
 
 
+def referenced_concepts(rule: Rule) -> set[str]:
+    """Every concept the rule reads. The concept layer must define each one."""
+    pop = rule.population
+    out = {*pop.sex_or_any_of, *pop.any_of, *pop.none_of}
+    out.update(c for r in rule.requires for c in r.any_of)
+    out.update(e.concept for e in rule.exclusions)
+    out.update(a.concept for a in rule.satisfied_by)
+    if rule.declined:
+        out.add(rule.declined.concept)
+    if rule.trigger:
+        out.add(rule.trigger.concept)
+    if rule.followed_by:
+        out.update(rule.followed_by.any_of)
+    return out
+
+
 def check_rules(rules: dict[str, Rule], today: date) -> list[str]:
     """Problems that should fail CI: stale rules and dates that can't be right."""
     problems = []

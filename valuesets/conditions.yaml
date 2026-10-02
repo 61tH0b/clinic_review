@@ -1,0 +1,138 @@
+# Conditions from MSP diagnostic codes and problem list / medical history text.
+# MSP uses WHO ICD-9 at 3 or 4 characters (no decimal, leading zeros kept), not the US
+# ICD-9-CM: 585 has no stage subcodes, and CIN II is 622.1, not 622.12. Every code below
+# was checked against MSP's own chapter lists on 2026-10-02.
+name: conditions
+match: text
+applies_to: [history.medical, history.surgical, encounters]
+status: draft
+review_by: 2027-10-01
+sources:
+  - "MSP Diagnostic Code Descriptions (ICD-9): https://www2.gov.bc.ca/gov/content/health/practitioner-professional-resources/msp/physicians/diagnostic-code-descriptions-icd-9"
+# A problem list or history row is usually one condition, so a relative or a screening
+# mention anywhere in the row blocks the whole row.
+blocked_by:
+  ["screening", "screen", "screened", "family history", "fhx", "fh", "mother", "father", "mom", "dad",
+   "sister", "brother", "sibling", "siblings", "parent", "parents", "aunt", "uncle", "grandmother",
+   "grandfather", "grandparent", "cousin", "son", "daughter", "relative"]
+# Up to 3 words before the matched phrase
+cues_before:
+  ["no", "not", "denies", "denied", "without", "negative for", "query", "possible", "possibly",
+   "probable", "suspected", "suspect", "rule out", "r o", "risk of", "risk for", "at risk",
+   "concern for", "worried about"]
+concepts:
+  dx.diabetes:
+    label: Diabetes mellitus, type 1 or 2
+    icd9: ["250", "6480"]  # 648.0: pre-existing diabetes in pregnancy
+    text:
+      ["diabetes", "diabetes mellitus", "diabetic", "dm", "dm1", "dm2", "dm 1", "dm 2", "t1dm", "t2dm",
+       "type 1 diabetes", "type 2 diabetes", "type i diabetes", "type ii diabetes", "iddm", "niddm"]
+    not_if:
+      ["pre diabetes", "prediabetes", "pre diabetic", "prediabetic", "gestational", "gdm", "insipidus",
+       "impaired fasting glucose", "impaired glucose tolerance"]
+  dx.hypertension:
+    label: Hypertension
+    icd9: ["401", "402", "403", "404", "405"]
+    text: ["hypertension", "htn", "high blood pressure", "essential hypertension"]
+    not_if:
+      ["gestational", "pregnancy induced", "preeclampsia", "pre eclampsia", "white coat", "pulmonary",
+       "portal", "intracranial", "ocular"]
+  dx.ckd:
+    label: Chronic kidney disease, any stage
+    icd9: ["585"]  # WHO ICD-9: chronic renal failure, no stages
+    text:
+      ["ckd", "chronic kidney disease", "chronic renal failure", "chronic renal insufficiency",
+       "chronic renal disease", "esrd", "end stage renal disease", "end stage kidney disease", "eskd"]
+  dx.ckd_severe:
+    label: Chronic kidney disease stage 4 or 5
+    text:
+      ["ckd stage 4", "ckd stage 5", "ckd 4", "ckd 5", "ckd g4", "ckd g5", "stage 4 ckd", "stage 5 ckd",
+       "esrd", "end stage renal disease", "end stage kidney disease", "eskd"]
+  dx.heart_failure:
+    label: Heart failure
+    icd9: ["428"]
+    text:
+      ["heart failure", "chf", "congestive heart failure", "hfref", "hfpef", "hfmref", "cardiac failure",
+       "left ventricular failure", "lv failure"]
+  dx.ibd:
+    label: Inflammatory bowel disease (Crohn's disease or ulcerative colitis)
+    icd9: ["555", "556"]
+    text:
+      ["crohn", "crohns", "crohn s", "crohn disease", "crohns disease", "crohn s disease",
+       "ulcerative colitis", "ulcerative proctitis", "ulcerative proctocolitis", "ibd",
+       "inflammatory bowel disease", "regional enteritis", "idiopathic proctocolitis"]
+  dx.colorectal_cancer:
+    label: Colorectal cancer, current or past
+    icd9: ["153", "154"]
+    icd9_exclude: ["1542", "1543"]  # anal canal and anus
+    text:
+      ["colon cancer", "colorectal cancer", "rectal cancer", "crc", "colon ca", "rectal ca", "colorectal ca",
+       "colon carcinoma", "rectal carcinoma", "colorectal carcinoma", "adenocarcinoma of colon",
+       "adenocarcinoma of the colon", "adenocarcinoma of rectum", "adenocarcinoma of the rectum",
+       "carcinoma of colon", "carcinoma of the colon", "carcinoma of rectum", "sigmoid cancer",
+       "cecal cancer", "caecal cancer"]
+    not_if: ["risk"]
+  dx.breast_cancer:
+    label: Breast cancer including DCIS, current or past
+    icd9: ["174", "175", "2330"]
+    text:
+      ["breast cancer", "breast ca", "breast carcinoma", "carcinoma of breast", "carcinoma of the breast",
+       "dcis", "ductal carcinoma in situ", "invasive ductal carcinoma", "invasive lobular carcinoma",
+       "mammary carcinoma"]
+    not_if: ["lcis", "lobular carcinoma in situ", "brca", "gene", "risk"]
+  dx.lung_cancer:
+    label: Lung cancer, current or past
+    icd9: ["162"]
+    text:
+      ["lung cancer", "lung ca", "lung carcinoma", "nsclc", "sclc", "non small cell lung cancer",
+       "non small cell lung carcinoma", "small cell lung cancer", "small cell lung carcinoma",
+       "lung adenocarcinoma", "adenocarcinoma of lung", "adenocarcinoma of the lung",
+       "bronchogenic carcinoma", "squamous cell carcinoma of lung", "squamous cell carcinoma of the lung"]
+    not_if: ["risk"]
+  dx.hiv:
+    label: HIV infection
+    icd9: ["042", "043", "044"]
+    # "AIDS" is left out on purpose: it matches "hearing aids" far more often than AIDS
+    text: ["hiv", "hiv positive", "hiv infection", "hiv disease", "human immunodeficiency virus"]
+    not_if: ["negative", "prep", "pre exposure", "post exposure", "pep", "test", "testing", "tested", "exposure"]
+  dx.organ_transplant:
+    label: Solid organ, bone marrow, or stem cell transplant recipient
+    icd9: ["V420", "V421", "V426", "V427", "V428"]  # kidney, heart, lung, liver, other organ; not valve, skin, bone, cornea
+    text:
+      ["kidney transplant", "renal transplant", "liver transplant", "heart transplant", "lung transplant",
+       "pancreas transplant", "solid organ transplant", "bone marrow transplant", "stem cell transplant",
+       "hsct", "allogeneic transplant"]
+    not_if: ["donor", "candidate", "waitlist", "wait list", "assessment", "workup", "work up"]
+  dx.hematologic_cancer:
+    label: Lymphoma, leukaemia, or myeloma
+    icd9: ["200", "201", "202", "203", "204", "205", "206", "207", "208"]
+    text:
+      ["lymphoma", "hodgkin", "hodgkins", "hodgkin s", "non hodgkin lymphoma", "leukemia", "leukaemia",
+       "multiple myeloma", "myeloma", "cll", "cml", "aml"]
+  dx.primary_immunodeficiency:
+    label: Primary immunodeficiency
+    icd9: ["2790", "2791", "2792", "2793"]  # not 279.4, autoimmune disease NEC
+    text:
+      ["primary immunodeficiency", "cvid", "common variable immunodeficiency", "hypogammaglobulinemia",
+       "hypogammaglobulinaemia", "scid", "severe combined immunodeficiency"]
+  proc.dialysis:
+    label: On dialysis
+    icd9: ["V451", "V56"]
+    text: ["dialysis", "hemodialysis", "haemodialysis", "peritoneal dialysis"]
+    not_if: ["pre dialysis", "predialysis"]
+  state.pregnancy:
+    label: Pregnant
+    icd9: ["V22", "V23", "30B"]  # not 36B, examination with pregnancy unconfirmed
+    text: ["pregnant", "pregnancy", "intrauterine pregnancy", "iup", "prenatal care", "antenatal care"]
+    not_if: ["test", "planning", "trying to conceive", "ttc", "contraception", "prevention"]
+  state.breastfeeding:
+    label: Breastfeeding
+    icd9: ["V241"]
+    text: ["breastfeeding", "breast feeding", "breastfeeds", "lactating", "lactation"]
+  hx.cin2_plus_or_ais:
+    label: History of CIN 2 or 3 or adenocarcinoma in situ of the cervix, or its treatment
+    icd9: ["2331"]  # carcinoma in situ of cervix; not 622.1, which also covers CIN 1
+    text:
+      ["cin 2", "cin2", "cin ii", "cin 3", "cin3", "cin iii", "carcinoma in situ of cervix",
+       "cervical carcinoma in situ", "adenocarcinoma in situ of cervix", "cervical adenocarcinoma in situ",
+       "leep", "lletz", "cone biopsy", "cold knife cone", "conization", "cervical conization"]

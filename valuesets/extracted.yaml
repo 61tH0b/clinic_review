@@ -1,0 +1,51 @@
+# Concepts only the model produces, from notes and reports on the Mac (PLAN section 7).
+# Every one needs a quoted span that matches the source exactly. This file is the
+# extraction target list; the model may also produce concepts the other value sets define
+# (a mammogram date read from a report body, say), but these have no other source.
+name: extracted
+match: extraction
+status: draft
+review_by: 2027-10-01
+sources:
+  - "docs/screening-catalog.md: the rule rows that read these concepts"
+concepts:
+  decline.colon_screening:
+    label: Informed refusal of colon cancer screening
+    from: [encounters]
+    note: Quote the sentence recording the refusal. A deferral ("will think about it") isn't a refusal.
+  decline.colonoscopy:
+    label: Informed refusal of colonoscopy after a positive FIT
+    from: [encounters, documents.consults]
+  decline.breast_screening:
+    label: Informed refusal of breast cancer screening
+    from: [encounters]
+  decline.cervix_screening:
+    label: Informed refusal of cervical cancer screening
+    from: [encounters]
+  decline.lung_screening:
+    label: Informed refusal of lung cancer screening
+    from: [encounters]
+  risk.colon_family_history_high:
+    label: One first-degree relative with colorectal cancer before 60, or two or more at any age
+    from: [history.family, encounters, documents.consults]
+  risk.breast_family_history_fdr:
+    label: First-degree relative with breast cancer
+    from: [history.family, encounters]
+  risk.breast_high_risk:
+    label: Known BRCA1/2, PALB2, CDH1, PTEN, STK11 or NF1 carrier, untested first-degree relative of a carrier, or very strong family history
+    from: [history.family, history.medical, documents.consults]
+  hx.chest_radiation_10_30:
+    label: Chest radiation between ages 10 and 30
+    from: [history.medical, documents.consults, documents.hospital]
+  hx.colon_polyps:
+    label: Adenomatous or serrated polyps on a prior colonoscopy
+    from: [documents.consults, documents.hospital, documents.lab]
+  hx.lung_nodule_surveillance:
+    label: Lung nodule under active imaging follow-up
+    from: [documents.diagnostic_imaging, documents.consults]
+  rx.estrogen_gender_affirming_5y:
+    label: Gender-affirming estrogen for 5 years or more
+    from: [medications, encounters, history.medical]
+  dx.cancer_active:
+    label: Cancer other than lung under active treatment or follow-up
+    from: [history.medical, encounters, documents.consults]

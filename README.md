@@ -31,11 +31,12 @@ The walker tests drive a real headless Chromium against a fake CHR-like app with
 
 ## Rules
 
-One YAML file per rule in [`rules/`](rules/), evaluated by `src/clinic_review/engine/`. [`rules/README.md`](rules/README.md) has the fields. After editing a rule:
+One YAML file per rule in [`rules/`](rules/), evaluated by `src/clinic_review/engine/`. [`rules/README.md`](rules/README.md) has the fields. The concept layer in [`valuesets/`](valuesets/) maps chart codes and text to the concepts rules read ([`valuesets/README.md`](valuesets/README.md)). After editing a rule or a value set:
 
 ```sh
 python -m clinic_review.engine check rules   # validates every rule, fails on any past review_by
-python -m pytest tests/test_engine.py
+python -m clinic_review.concepts check       # validates value sets, fails if a rule reads an undefined concept
+python -m pytest tests/test_engine.py tests/test_concepts.py
 ```
 
 ## Running the walker on the clinic Mac

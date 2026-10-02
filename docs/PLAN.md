@@ -1,6 +1,6 @@
 # Clinic Review: panel-wide screening and care-gap review
 
-Plan v0.7, 2026-09-24. Bonne Vie Medical Clinic, Coquitlam BC. EMR: TELUS Collaborative Health Record (CHR, formerly Input Health).
+Plan v0.8, 2026-10-02. Bonne Vie Medical Clinic, Coquitlam BC. EMR: TELUS Collaborative Health Record (CHR, formerly Input Health).
 
 **Goal:** for every active longitudinal patient aged 0 to 100, produce a verifiable list of what's due, overdue, or left open, using BC rules, and turn it into work the clinic actually closes.
 
@@ -168,7 +168,18 @@ So **"not found in chart" never counts as "overdue".** Section 6.3 makes that a 
 
 ### 6.1 Concept layer
 
-A curated table maps ICD-9 codes, free-text synonyms, lab test names, drug names, and document keywords to about 150 internal concepts (`dx.diabetes`, `obs.a1c`, `screen.mammogram`, `proc.hysterectomy_total`, `imm.pcv20`). It's built and clinician-signed before the rules, as the spec says. It lives in `valuesets/`.
+Curated value sets map MSP ICD-9 codes, problem list and history text, medication names, lab names and results, and document titles to internal concepts (`dx.diabetes`, `obs.a1c`, `imaging.mammogram`, `proc.hysterectomy_total`). They live in `valuesets/`, the code is `src/clinic_review/concepts/`, and [`valuesets/README.md`](../valuesets/README.md) has the matching rules. The value sets are signed off by a clinician before any rule goes live, as the spec says.
+
+**v1 built 2026-10-02, all draft until you sign off:** 8 files and 70 concepts, covering every concept the first seven rules read plus the diabetes, hypertension, CKD, statin, and glucocorticoid concepts the next rules need. `python -m clinic_review.concepts check` fails CI if a rule reads a concept no value set defines. How it reads a chart:
+
+- **Codes:** MSP stores WHO ICD-9 at 3 or 4 characters, not the US ICD-9-CM. Every code was checked against MSP's own chapter lists. 585 has no stages, so severe CKD comes from text, and later from eGFR.
+- **Text:** whole-word phrases. A relative or a screening mention blocks the row. Negation and uncertainty just before a match drop it ("no DM", "r/o", "?DM"). The most specific phrase wins among alternatives (total vs subtotal vs unspecified hysterectomy). Conflicting smoking statuses are dropped rather than guessed.
+- **Labs:** exact name and result match only. An unrecognized result keeps the test with no value, so it can't satisfy a rule.
+- **Documents:** the title says what a report is. Requisitions and referrals never count as done.
+- **Extracted and derived:** concepts only the model produces (declines, family history, chest radiation) are listed in `extracted.yaml` as its target list. `derived.yaml` computes concepts like `risk.immunocompromised` from other facts.
+- **Skips:** every dropped or unmatched row becomes a skip with a reason. That's the curation list that grows the value sets. It stays on the Mac and never quotes chart text.
+
+Medications match by name, since CHR shows names and not DINs. ATC classes are for cross-checking at sign-off.
 
 ### 6.2 Rule format
 
@@ -290,7 +301,7 @@ Audit and extraction results stay on the Mac. Only the per-rule pass/fail decisi
 | When | Work | Spec phase | Exit criteria |
 |---|---|---|---|
 | **Week 1** | Walker built and tested against the fake EMR (done). Phase 0: `walker record` on 5 test charts, then write the local CHR profile. Catalog sign-off. | 0 (map) | Every chart section the rules need has a known route and field list |
-| **Weeks 1 to 2** | Rule format and evaluator (done, first seven rules in shadow mode, edge-case suite in CI). Concept layer v1, remaining cancer screening and loop rules. Roster pass on your panel with `--limit 50`. | 0 and 1 | CI is green on every edge case |
+| **Weeks 1 to 2** | Rule format and evaluator (done, first seven rules in shadow mode, edge-case suite in CI). Concept layer v1 (done, draft until sign-off). Fact store, remaining cancer screening and loop rules. Roster pass on your panel with `--limit 50`. | 0 and 1 | CI is green on every edge case |
 | **Weeks 3 to 4** | Walker on your first 50 charts. Remaining adult screening, immunizations, unrecognized conditions, chronic monitoring for DM, HTN, CKD. Rules in shadow mode. | 1 (walk and store) | Zero wrong-patient mismatches on 50 charts |
 | **Weeks 5 to 6** | On-device OCR and extraction, model chosen. First full-panel walk (roster pass, then eligibility pass). 100-chart audit. | 3 (category A) | Extraction check and audit thresholds met |
 | **Weeks 7 to 8** | Pediatrics (Rourke, Greig, childhood and school immunizations), prenatal, life-stage rules. Queue live for rules that passed. Weekly incremental walks. | 3 continued | First month of closure-rate data |
@@ -334,12 +345,13 @@ Still open: **tell TELUS** before the first overnight walk?
 clinic_review/
   docs/                 plan, catalog, sources
   rules/                one YAML per rule
-  valuesets/            concept layer: ICD-9, lab names, drug→ATC, document keywords, vaccine→antigen
+  valuesets/            concept layer: MSP ICD-9, history text, medication names, lab names, document titles
   scripts/
     check_no_phi.py     pre-commit and CI guard
   src/clinic_review/
     walker/             browser walker: session, capture, guard, pacing, Phase 0 recorder
     store/              sealed raw capture store (SQLite, AES-256-GCM, key in macOS Keychain)
+    concepts/           concept layer: matching, derived concepts, value set checks
     engine/             evaluator, evidence states, ledger
     extract/            OCR + extraction schemas and prompts. Model adapters: local (MLX/Ollama), Azure Canada East.
     report/             dashboard aggregates, queue export, pre-visit card
