@@ -307,7 +307,7 @@ Audit and extraction results stay on the Mac. Only the per-rule pass/fail decisi
 
 ## 10. Roadmap
 
-Updated 2026-10-02. "You" is the physician on the clinic Mac; everything patient-level happens there. The repo side is built and tested on synthetic charts, so the critical path now runs through the Mac.
+Updated 2026-10-02. "You" is the physician on the clinic Mac; everything patient-level happens there. The repo side is built and tested on synthetic charts, so the critical path now runs through the Mac. [`HANDOFF.md`](HANDOFF.md) breaks the remaining builds into work packages with acceptance criteria.
 
 ### Done (PR #1)
 

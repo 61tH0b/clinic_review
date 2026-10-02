@@ -5,6 +5,7 @@ Panel-wide screening and care-gap review for Bonne Vie Medical Clinic (Coquitlam
 - [`docs/PLAN.md`](docs/PLAN.md): how it works, including guardrails, the chart walker, the rules engine, validation, phasing, and open decisions
 - [`docs/screening-catalog.md`](docs/screening-catalog.md): every rule by life stage, with a BC source for each
 - [`docs/sources.md`](docs/sources.md): primary sources, checked 2026-09-22
+- [`docs/HANDOFF.md`](docs/HANDOFF.md): what's built, ground rules, and the next work packages for whoever picks this up
 
 ## Nothing patient-level goes in this repo
 
