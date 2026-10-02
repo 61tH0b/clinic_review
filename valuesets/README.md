@@ -8,6 +8,12 @@ python -m clinic_review.concepts check   # validates every file, and fails if an
 
 Every file starts as `status: draft`. A clinician reads it, then sets `status: signed` and `signed_off: {by, on}`. Rules can run in shadow mode on draft value sets, but a rule shouldn't go `live` on one.
 
+WP1 doesn't change value sets or their schema. Local feedback records are labelled
+`source: attestation` in memory, but they don't create concepts or enter evaluation.
+Ali must approve their validity and rule-specific evidence mapping first; see
+[`docs/reporting.md`](../docs/reporting.md). No completion, decline, or exclusion
+concept is inferred from an unapproved feedback outcome.
+
 ## How matching works
 
 - **Codes:** MSP stores WHO ICD-9 at 3 or 4 characters with no decimal and with leading zeros (`250`, `2500`, `V451`, `30B`). It isn't the US ICD-9-CM, so there are no 5-digit codes and 585 has no stages. A listed code matches itself and everything under it (`250` matches `2504`), minus `icd9_exclude`.

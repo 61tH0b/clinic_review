@@ -6,6 +6,8 @@ Panel-wide screening and care-gap review for Bonne Vie Medical Clinic (Coquitlam
 - [`docs/screening-catalog.md`](docs/screening-catalog.md): every rule by life stage, with a BC source for each
 - [`docs/sources.md`](docs/sources.md): primary sources, checked 2026-09-22
 - [`docs/HANDOFF.md`](docs/HANDOFF.md): what's built, ground rules, and the next work packages for whoever picks this up
+- [`docs/TESTING.md`](docs/TESTING.md): local commands and the current review/version state
+- [`docs/reporting.md`](docs/reporting.md): worklists, run diffs, and capture-only feedback
 
 ## Nothing patient-level goes in this repo
 
@@ -29,6 +31,20 @@ python -m pytest
 ```
 
 The walker tests drive a real headless Chromium against a fake CHR-like app with synthetic patients (`tests/fake_emr.py`).
+
+## Local worklists and run diffs (0.2.0)
+
+WP1 adds `python -m clinic_review.report` (also `clinic-review-report` after installation).
+It reads a finished ledger run without opening the raw-store key, and writes HTML/CSV
+to a new caller-named local folder outside Git checkouts. Stdout contains counts only.
+Rule titles and actions come from that run's snapshots; legacy runs need re-evaluation.
+`--version` shows the source commit and its time; HTML shows that stamp and generation
+time. A dirty checkout is labelled. This is local review software, with no deployment.
+
+The feedback CSV captures done elsewhere, declined, or not applicable, plus a date
+and optional note. `feedback-check` validates it against the selected run. It doesn't
+change evaluation: attestation validity and rule-specific evidence mapping still need
+Ali's decision. See [`docs/reporting.md`](docs/reporting.md) for the commands and gates.
 
 ## Rules
 

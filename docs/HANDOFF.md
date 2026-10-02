@@ -1,6 +1,33 @@
 # Handoff: clinic_review
 
-Written 2026-10-02 at commit `8a89d05` on branch `claude/clinic-screening-gaps-plan-9hubbe` (PR #1). Everything below is built, tested on synthetic data, and green in CI. This is the brief for whoever picks up the next builds.
+Updated 2026-10-02 03:10 PDT for WP1 (0.2.0). Base `eccbccca258c1552667bc7c7719a5d84fdac963f`
+on `claude/clinic-screening-gaps-plan-9hubbe` (PR #1, still open). The base had 192 passing
+synthetic tests. WP1 status below is local verification; CI isn't inferred from local tests.
+
+## WP1 status, 2026-10-02 03:10 PDT
+
+- Built on `gpt/wp1-worklists-run-diff`, with rollback tag `pre-wp1` at the base.
+- Local worklists: self-contained HTML plus CSV per audience/action, category B first,
+  UNKNOWN tasks, pre-visit-only DISCUSS, outreach, rule status, dates, and evidence.
+- New runs snapshot titles/actions/status/version; report reads are read-only. Legacy,
+  unfinished, incomplete, and cohort-only runs are rejected. Run diffs keep missing
+  evaluations separate from closure and flag digest changes.
+- Feedback CSV capture/validation has strict columns, outcomes, dates, and result/version
+  binding. It doesn't feed facts or change evaluation. **Acceptance blocked:** an
+  attestation closing a gap on the next run needs Ali's validity and evidence policy.
+- All four checks pass locally: 241 tests (192 baseline plus 49 report tests), 7 rules,
+  8 value sets/70 concepts with all 45 rule concepts defined, and the PHI scan. Six
+  logic mutations were detected and restored. Push/draft-PR status is recorded below.
+- All data used here is synthetic. No walker or clinical rule changes; all clinical
+  sign-off/audit gates remain. WP2 hasn't started. [reporting.md](reporting.md) and
+  [wp1-design.md](wp1-design.md) describe the implementation and limitation.
+- Deviation: shared queue checked read-only because this package's explicit repository
+  boundary forbids sibling edits. Ownership is recorded in `TASKS.md`. No conflict found.
+- Implementation `4e4d3f7` is pushed, authored by Aya Health Technologies Inc.
+  <admin@autochart.ai>. [Draft PR #2](https://github.com/61tH0b/clinic_review/pull/2)
+  targets the Claude base; it's attached to the review chat. No merge, default-branch
+  change, clinical enablement, or WP2 work. As of this timestamp, CI rules/no-phi jobs
+  pass and test jobs are running. Confirm the final head's CI before review/merge.
 
 ## Read these first, in this order
 
@@ -61,10 +88,13 @@ walker captures -> raw store -> fact store -> cohort -> concept layer + derived 
 | `concepts/` | Value sets: MSP WHO ICD-9, text, labs, documents, plus extracted and derived concepts. Rows become facts; skips record why a row didn't map. | `ConceptLayer`, `python -m clinic_review.concepts check` |
 | `engine/` | Strict YAML rules and the deterministic evaluator. Interval and loop rules, population, exclusions, requires, grace, the reported next-due date, declines, discuss mode. | `evaluate`, `python -m clinic_review.engine check rules` |
 | `pipeline/` | Cohort split (PLAN 4), then every rule on the active cohort, then the ledger. Prints aggregates only. | `python -m clinic_review.pipeline evaluate` |
+| `report/` | Read-only completed-run reports: local HTML/CSV worklists and run diffs, aggregate stdout, and capture-only feedback validation | `python -m clinic_review.report worklists\|diff\|feedback-check` |
 | `rules/` | 7 rules, all `status: shadow` | |
 | `valuesets/` | 8 files, 70 concepts, all `status: draft` | |
 
-There are 192 tests. The 8 walker tests and the end-to-end pipeline test drive a real headless Chromium against the fake EMR.
+The base had 192 tests; WP1 adds 49, for 241. The 8 walker tests and the end-to-end
+pipeline test drive a real headless Chromium against the fake EMR. The pipeline
+browser test also exports its resulting worklists.
 
 ## Work packages, in recommended order
 

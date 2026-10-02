@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "clinic-review"
-version = "0.1.0"
+version = "0.2.0"
 description = "Panel-wide screening and care-gap review for a BC family practice on TELUS CHR"
 requires-python = ">=3.11"
 dependencies = [
@@ -20,6 +20,7 @@ dev = ["pytest>=8"]
 
 [project.scripts]
 clinic-review-walker = "clinic_review.walker.cli:main"
+clinic-review-report = "clinic_review.report.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
