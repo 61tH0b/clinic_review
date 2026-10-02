@@ -48,6 +48,21 @@ CREATE TABLE IF NOT EXISTS skips (
     source         TEXT NOT NULL,
     reason         TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS eval_run_modes (
+    run_id TEXT PRIMARY KEY,
+    cohort_only INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS eval_rule_metadata (
+    run_id TEXT NOT NULL,
+    rule_id TEXT NOT NULL,
+    rule_version INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    category TEXT NOT NULL,
+    status TEXT NOT NULL,
+    action_kind TEXT NOT NULL,
+    action_note TEXT NOT NULL,
+    PRIMARY KEY (run_id, rule_id)
+);
 """
 
 GROUPS = ("active", "outreach", "excluded", "not_walked")
@@ -65,12 +80,21 @@ class Ledger:
     def close(self) -> None:
         self._db.close()
 
-    def start(self, run_id: str, sweep: str, as_of: str, ruleset: str) -> None:
+    def start(self, run_id: str, sweep: str, as_of: str, ruleset: str, *, rules=None, cohort_only=False) -> None:
         with self._db:
             self._db.execute(
                 "INSERT INTO eval_runs (run_id, sweep, as_of, ruleset, started_at) VALUES (?, ?, ?, ?, ?)",
                 (run_id, sweep, as_of, ruleset, _now()),
             )
+            if rules is not None:
+                # Queue instructions must describe this run, even after a rule is edited.
+                self._db.execute("INSERT INTO eval_run_modes VALUES (?, ?)", (run_id, int(cohort_only)))
+                self._db.executemany(
+                    "INSERT INTO eval_rule_metadata VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    [(run_id, r.id, r.version, r.title, r.category, r.status,
+                      (r.action or {}).get("kind", ""), (r.action or {}).get("note", ""))
+                     for r in rules.values()],
+                )
 
     def finish(self, run_id: str) -> None:
         with self._db:

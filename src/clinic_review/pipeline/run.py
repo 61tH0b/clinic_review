@@ -70,7 +70,7 @@ def evaluate_panel(
     cohort_only: bool = False,
 ) -> RunSummary:
     run_id = f"eval-{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}-{secrets.token_hex(3)}"
-    ledger.start(run_id, sweep, as_of.isoformat(), ruleset)
+    ledger.start(run_id, sweep, as_of.isoformat(), ruleset, rules=rules, cohort_only=cohort_only)
     patients = 0
     for chr_id in store.roster_ids():
         patients += 1
