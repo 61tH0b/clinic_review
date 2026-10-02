@@ -1,0 +1,79 @@
+# Structured lab results. Names and results match exactly after normalization, never by
+# substring: a result string like "HPV 16/18 not detected; other HR HPV detected" must
+# never be read as negative just because it contains "not detected". Anything unmatched
+# keeps the fact with no value and goes on the curation list.
+#
+# These names are what BC labs usually print. Phase 0 shows what CHR actually stores, and
+# the unmatched list fills the gaps.
+name: labs
+match: lab
+applies_to: [labs]
+status: draft
+review_by: 2027-10-01
+sources:
+  - "BC Cancer Colon Screening (FIT): https://www.bccancer.bc.ca/screening/health-professionals/colon"
+  - "BC Cancer Cervical Cancer Screening Lab: https://www.bccancer.bc.ca/health-professionals/clinical-resources/laboratory-services/cervical-cancer-screening"
+concepts:
+  obs.fit:
+    label: Fecal immunochemical test
+    names:
+      ["fecal immunochemical test", "fit", "fit fecal immunochemical test", "immunochemical fecal occult blood test",
+       "ifobt", "fecal occult blood immunochemical"]
+    results:
+      positive: ["positive", "abnormal"]
+      negative: ["negative", "normal"]
+  obs.hpv_test:
+    label: HPV test (provider- or self-collected)
+    names:
+      ["hpv", "hpv test", "hpv dna", "hpv testing", "human papillomavirus", "human papillomavirus dna",
+       "high risk hpv", "hr hpv", "hpv high risk"]
+    results:
+      negative: ["negative", "not detected", "hpv not detected", "high risk hpv not detected", "hr hpv not detected"]
+      hpv16_18: ["hpv 16 detected", "hpv 18 detected", "hpv 16 18 detected", "hpv 16 and 18 detected", "hpv 16 and or 18 detected"]
+      other: ["other high risk hpv detected", "other hr hpv detected", "hpv other high risk types detected", "other high risk types detected"]
+      positive: ["positive", "detected"]
+  obs.cervical_cytology:
+    label: Cervical cytology (Pap or liquid-based)
+    names:
+      ["cervical cytology", "pap test", "pap smear", "pap", "liquid based cytology", "lbc", "gynecologic cytology",
+       "gynaecologic cytology"]
+    results:
+      nilm: ["nilm", "negative for intraepithelial lesion or malignancy", "negative"]
+      ascus: ["ascus", "atypical squamous cells of undetermined significance"]
+      asc_h: ["asc h", "atypical squamous cells cannot exclude hsil",
+              "atypical squamous cells cannot exclude high grade squamous intraepithelial lesion"]
+      lsil: ["lsil", "low grade squamous intraepithelial lesion"]
+      hsil: ["hsil", "high grade squamous intraepithelial lesion"]
+      agc: ["agc", "atypical glandular cells"]
+      unsatisfactory: ["unsatisfactory", "unsatisfactory for evaluation"]
+  obs.a1c:
+    label: Hemoglobin A1c (%)
+    names:
+      ["hemoglobin a1c", "haemoglobin a1c", "hba1c", "a1c", "hgb a1c", "glycated hemoglobin",
+       "glycosylated hemoglobin", "hemoglobin a1c hba1c"]
+    numeric: true
+  obs.fasting_glucose:
+    label: Fasting plasma glucose (mmol/L)
+    names: ["glucose fasting", "fasting glucose", "glucose fasting plasma", "fasting plasma glucose", "fpg"]
+    numeric: true
+  obs.egfr:
+    label: eGFR (mL/min/1.73 m2)
+    names: ["egfr", "estimated gfr", "gfr estimated", "egfr ckd epi", "estimated glomerular filtration rate"]
+    numeric: true
+  obs.acr:
+    label: Urine albumin to creatinine ratio (mg/mmol)
+    names:
+      ["albumin creatinine ratio", "urine albumin creatinine ratio", "acr", "urine acr",
+       "microalbumin creatinine ratio", "albumin creatinine ratio urine", "urine albumin to creatinine ratio",
+       "albumin to creatinine ratio"]
+    numeric: true
+  obs.ldl:
+    label: LDL cholesterol (mmol/L)
+    names:
+      ["ldl cholesterol", "ldl c", "cholesterol ldl", "ldl cholesterol calculated", "ldl",
+       "low density lipoprotein cholesterol"]
+    numeric: true
+  obs.lpa:
+    label: Lipoprotein(a)
+    names: ["lipoprotein a", "lp a"]
+    numeric: true

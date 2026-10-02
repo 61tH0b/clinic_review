@@ -1,0 +1,45 @@
+# Smoking status. Charts say "non-smoker" for people who quit as often as for people who
+# never smoked, so that phrase maps to its own concept. Lung screening's "smoking history"
+# input isn't met by it, which turns the patient UNKNOWN and makes the task "record smoking
+# history" instead of guessing never-smoker and dropping a former smoker from screening.
+name: risk_factors
+match: text
+applies_to: [risk_factors, history.medical, encounters]
+status: draft
+review_by: 2027-10-01
+sources:
+  - "BC Guidelines, Tobacco Use Disorder (2024): https://www2.gov.bc.ca/gov/content/health/practitioner-professional-resources/bc-guidelines/tobacco-use-disorder"
+  - "BC Cancer Lung Screening, Standards and Protocols (Apr 2026): https://www.bccancer.bc.ca/screening/health-professionals/lung"
+blocked_by:
+  ["family", "fhx", "mother", "father", "parent", "parents", "spouse", "partner", "husband", "wife",
+   "household", "second hand", "secondhand", "passive", "child", "children"]
+cues_before: ["query", "possible"]
+exclusive:
+  - [risk.current_smoker, risk.former_smoker, risk.never_smoker, risk.not_current_smoker]
+concepts:
+  risk.current_smoker:
+    label: Currently smokes tobacco
+    icd9: ["3051"]  # nondependent abuse of drugs: tobacco
+    text:
+      ["smoker", "current smoker", "smokes", "smokes cigarettes", "cigarette smoker", "daily smoker",
+       "active smoker", "currently smoking", "currently smokes", "still smoking", "still smokes",
+       "tobacco use disorder"]
+    # "Smoker x 20 yrs, quit 2010" isn't current. With nothing else matching, it stays
+    # unmapped and lung screening asks for the smoking history. Adjacent modifiers ("ex-",
+    # "former", "non-") don't need listing: the longer phrase already wins.
+    not_if: ["quit", "quitted", "stopped", "previously", "past", "never"]
+  risk.former_smoker:
+    label: Smoked tobacco in the past, not now
+    text:
+      ["former smoker", "ex smoker", "exsmoker", "past smoker", "previous smoker", "remote smoker",
+       "quit smoking", "stopped smoking", "quit tobacco", "quit cigarettes", "history of smoking", "hx of smoking"]
+  risk.never_smoker:
+    label: Never smoked tobacco
+    text:
+      ["never smoker", "never smoked", "never a smoker", "lifelong non smoker", "lifelong nonsmoker",
+       "never used tobacco", "never smoked tobacco", "never smoked cigarettes"]
+  risk.not_current_smoker:
+    label: Not smoking now, never vs former not recorded
+    text:
+      ["non smoker", "nonsmoker", "non smoking", "does not smoke", "doesn t smoke", "denies smoking",
+       "no smoking", "not a smoker", "not smoking", "no tobacco", "denies tobacco", "no tobacco use"]

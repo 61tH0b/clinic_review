@@ -1,0 +1,49 @@
+# Document titles (scanned and faxed reports). The title says what the document is; the
+# result, its date, and anything like BI-RADS or a recommended interval come from
+# extraction on the Mac. Requisitions, referrals, and reminders aren't results, so a title
+# that says so never counts as the test being done.
+name: documents
+match: text
+applies_to: [documents.diagnostic_imaging, documents.consults, documents.hospital, documents.lab, documents.historical]
+status: draft
+review_by: 2027-10-01
+sources:
+  - "BC Cancer Screening Guidelines (May 2026): https://www.bccancer.bc.ca/screening/Documents/Screening-Guidelines.pdf"
+blocked_by:
+  ["requisition", "req", "referral", "refer", "referred", "appointment", "booking", "booked", "reminder",
+   "recall", "consent", "request", "requested", "order", "ordered", "cancelled", "canceled", "no show",
+   "invitation"]
+exclusive:
+  - [proc.colonoscopy, imaging.ct_colonography]  # "virtual colonoscopy" is CT colonography
+concepts:
+  imaging.mammogram:
+    label: Mammogram report
+    text:
+      ["mammogram", "mammography", "screening mammogram", "diagnostic mammogram", "bilateral mammogram", "mammo",
+       "digital mammography", "tomosynthesis", "breast tomosynthesis"]
+  proc.colonoscopy:
+    label: Colonoscopy report
+    text: ["colonoscopy", "colonoscopy report", "total colonoscopy"]
+  proc.flex_sig:
+    label: Flexible sigmoidoscopy report
+    text: ["flexible sigmoidoscopy", "flex sig", "flex sigmoidoscopy", "sigmoidoscopy"]
+  imaging.ct_colonography:
+    label: CT colonography report
+    text: ["ct colonography", "virtual colonoscopy", "ctc"]
+  imaging.ldct:
+    label: Low-dose CT chest for lung screening
+    text:
+      ["low dose ct chest", "ldct", "lung screening ct", "low dose ct lung", "lung cancer screening ct",
+       "ct chest low dose", "ct lung screening", "low dose computed tomography chest"]
+  exam.retinal:
+    label: Retinal or diabetic eye exam report
+    text:
+      ["retinal exam", "retinal examination", "diabetic eye exam", "diabetic retinal exam",
+       "diabetic retinopathy screening", "retinopathy screening", "dilated eye exam", "dilated fundus exam",
+       "fundus photography", "retinal photography", "eye exam", "eye examination", "optometry report",
+       "optometrist report"]
+  screen.lung_risk_assessment:
+    label: BC Cancer Lung Screening Program risk assessment
+    text:
+      ["lung screening program", "lung screening assessment", "lung screening risk assessment",
+       "lung cancer screening program", "lung screening eligibility"]

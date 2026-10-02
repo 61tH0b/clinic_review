@@ -67,6 +67,11 @@ Primary sources behind the catalog. Checked 2026-09-22. Each rule file carries i
 - BC Early Hearing Program: https://www.phsa.ca/our-services/programs-services/bc-early-hearing-program/hearing-testing
 - Perinatal Services BC, lab tests by trimester: https://www.psbchealthhub.ca/
 
+## Concept layer
+
+- MSP Diagnostic Code Descriptions (ICD-9), with chapter PDFs and the 3- and 4-digit index (checked 2026-10-02): https://www2.gov.bc.ca/gov/content/health/practitioner-professional-resources/msp/physicians/diagnostic-code-descriptions-icd-9
+- WHO ATC/DDD Index, for cross-checking medication classes at sign-off: https://atcddd.fhi.no/atc_ddd_index/
+
 ## CHR, LFP, privacy
 
 - CHR exporting data: https://help.inputhealth.com/en/articles/2690444-exporting-data-from-the-chr

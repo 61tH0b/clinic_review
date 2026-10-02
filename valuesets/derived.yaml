@@ -1,0 +1,21 @@
+# Concepts computed from other facts. A derived fact is dated by its latest contributing
+# fact and carries their evidence ids, so the queue can show why it fired. A derived
+# concept can build on derived concepts above it, never below.
+name: derived
+match: derived
+status: draft
+review_by: 2027-10-01
+sources:
+  - "BC Cancer Cervix Screening, immunocompromised definition: https://www.bccancer.bc.ca/screening/health-professionals/cervix"
+  - "docs/screening-catalog.md §9 #6: HIV counts as immunocompromised"
+concepts:
+  risk.immunocompromised:
+    label: Immunocompromised for cervix screening intervals
+    any_of:
+      - {concept: rx.immunosuppressant, within_months: 24}  # now or in the last 2 years
+      - dx.organ_transplant
+      - dx.hematologic_cancer
+      - dx.primary_immunodeficiency
+      - proc.dialysis
+      - dx.ckd_severe
+      - dx.hiv

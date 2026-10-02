@@ -1,0 +1,20 @@
+id: colon.loop.fit_positive
+version: 1
+title: Positive FIT with no colonoscopy report
+category: B
+subtype: loop
+kind: loop
+status: shadow
+source:
+  name: BC Cancer Colon Screening, Screening Guidelines (May 2026)
+  url: https://www.bccancer.bc.ca/screening/health-professionals/colon
+  checked: 2026-09-22
+trigger: {concept: obs.fit, value_in: [positive], lookback_months: 24}
+followed_by: {any_of: [proc.colonoscopy], within_days: 180}
+declined: {concept: decline.colonoscopy, valid_months: 24}
+evidence_sources: [labs, documents.consults, documents.hospital]
+action:
+  kind: review
+  note: Physician review within a week of the run. BC Cancer and Fraser Health book the colonoscopy, so this catches the ones that fell through.
+review_by: 2027-09-01
+owner: ali

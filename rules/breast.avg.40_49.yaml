@@ -1,0 +1,38 @@
+id: breast.avg.40_49
+version: 1
+title: Breast cancer screening, average risk, 40 to 49 (discussion)
+category: A
+subtype: cancer
+mode: discuss
+status: shadow
+source:
+  name: BC Cancer Breast Screening, Screening Guidelines and Fact Sheet (May 2026)
+  url: https://www.bccancer.bc.ca/screening/health-professionals/breast
+  checked: 2026-09-22
+decision: catalog §9 #7 (available, not recommended, so DISCUSS)
+population:
+  age: {min: 40, max: 49}
+  sex_at_birth:
+    is: F
+    or_any_of: [rx.estrogen_gender_affirming_5y]
+  none_of: [risk.breast_family_history_fdr, risk.breast_high_risk, hx.chest_radiation_10_30]
+exclusions:
+  - dx.breast_cancer
+  - proc.mastectomy_bilateral
+  - proc.chest_construction
+  - proc.breast_implants
+  - {concept: state.pregnancy, within_months: 3}
+  - {concept: state.breastfeeding, within_months: 3}
+satisfied_by:
+  - {concept: imaging.mammogram, within_months: 24}
+evidence_sources:
+  - documents.diagnostic_imaging
+  - history.medical
+  - history.surgical
+  - history.family
+  - medications
+action:
+  kind: self_refer
+  note: If the patient chooses to screen, 1-800-663-9203.
+review_by: 2027-09-01
+owner: ali

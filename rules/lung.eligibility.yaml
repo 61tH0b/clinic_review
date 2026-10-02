@@ -1,0 +1,41 @@
+id: lung.eligibility
+version: 1
+title: Lung cancer screening, possibly eligible
+category: A
+subtype: cancer
+status: shadow
+source:
+  name: BC Cancer Lung Screening, Standards and Protocols (Apr 2026)
+  url: https://www.bccancer.bc.ca/screening/health-professionals/lung
+  checked: 2026-09-22
+population:
+  age: {min: 55, max: 74}
+  any_of: [risk.current_smoker, risk.former_smoker]
+# No smoking status recorded is the real gap for most patients (catalog lung.smoking_unknown).
+# It shows up as UNKNOWN here, with "record smoking history" as the task.
+requires:
+  - label: smoking history
+    any_of: [risk.never_smoker, risk.former_smoker, risk.current_smoker]
+exclusions:
+  - dx.lung_cancer
+  - hx.lung_nodule_surveillance
+  - rx.home_oxygen
+  - dx.heart_failure
+  - proc.dialysis
+  - dx.cancer_active
+satisfied_by:
+  # The program calculates PLCOm2012 (>= 1.5%), so a recent assessment counts whether or
+  # not it found the patient eligible. LDCT follow-up by result is a separate loop rule.
+  - {concept: screen.lung_risk_assessment, within_months: 24}
+  - {concept: imaging.ldct, within_months: 24}
+declined: {concept: decline.lung_screening, valid_months: 24}
+evidence_sources:
+  - risk_factors
+  - documents.diagnostic_imaging
+  - history.medical
+  - medications
+action:
+  kind: self_refer
+  note: Patient self-refers by phone, 1-877-717-5864.
+review_by: 2027-04-30
+owner: ali

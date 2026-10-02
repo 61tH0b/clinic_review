@@ -32,3 +32,15 @@ __pycache__/
 .DS_Store
 .idea/
 .vscode/
+
+# Walker captures and the CHR-specific profile stay on the clinic Mac
+local/
+captures/
+*.har
+*.zip
+*.local.*
+
+# Packaging
+*.egg-info/
+build/
+dist/

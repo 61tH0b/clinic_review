@@ -1,0 +1,71 @@
+# Procedures from surgical and medical history text. The exclusive groups matter: they
+# make the most specific phrase win ("TAH-BSO" is total, "supracervical" is subtotal) and
+# keep a vague entry ("hysterectomy") from passing as the specific one a rule needs.
+name: procedures
+match: text
+applies_to: [history.surgical, history.medical]
+status: draft
+review_by: 2027-10-01
+sources:
+  - "BC Cancer Screening Guidelines (May 2026), exclusions: https://www.bccancer.bc.ca/screening/Documents/Screening-Guidelines.pdf"
+blocked_by:
+  ["family history", "fhx", "mother", "father", "sister", "brother", "parent", "aunt", "uncle",
+   "grandmother", "grandfather", "son", "daughter"]
+cues_before:
+  ["no", "not", "denies", "query", "possible", "planned", "scheduled", "awaiting", "waitlist", "wait list",
+   "referred", "referral", "consult", "consider", "considering", "declined", "refused", "candidate for",
+   "discussed"]
+exclusive:
+  - [proc.hysterectomy_total, proc.hysterectomy_subtotal, proc.hysterectomy_unspecified]
+  - [proc.colectomy_total, proc.colectomy_partial]
+  - [proc.mastectomy_bilateral, proc.mastectomy_unspecified]
+concepts:
+  proc.hysterectomy_total:
+    label: Total hysterectomy (cervix removed)
+    text:
+      ["total hysterectomy", "total abdominal hysterectomy", "total laparoscopic hysterectomy",
+       "total vaginal hysterectomy", "vaginal hysterectomy", "radical hysterectomy",
+       "laparoscopic assisted vaginal hysterectomy", "tah", "tah bso", "tlh", "tvh", "lavh"]
+  proc.hysterectomy_subtotal:
+    label: Subtotal hysterectomy (cervix kept, still screens)
+    text:
+      ["subtotal hysterectomy", "sub total hysterectomy", "supracervical hysterectomy",
+       "laparoscopic supracervical hysterectomy", "lsh"]
+  proc.hysterectomy_unspecified:
+    label: Hysterectomy, type not recorded
+    # "Partial hysterectomy" is used loosely for uterus-only surgery, often with the cervix
+    # removed, so it can't be read as subtotal
+    text: ["hysterectomy", "partial hysterectomy", "laparoscopic hysterectomy"]
+  proc.colectomy_total:
+    label: Total colectomy or proctocolectomy
+    text:
+      ["total colectomy", "proctocolectomy", "total proctocolectomy", "restorative proctocolectomy",
+       "panproctocolectomy", "ipaa", "ileal pouch anal anastomosis", "j pouch"]
+  proc.colectomy_partial:
+    label: Partial colectomy (remaining colon still screens)
+    text:
+      ["hemicolectomy", "right hemicolectomy", "left hemicolectomy", "extended right hemicolectomy",
+       "sigmoid colectomy", "sigmoidectomy", "partial colectomy", "segmental colectomy", "subtotal colectomy",
+       "sub total colectomy", "low anterior resection", "anterior resection", "lar", "hartmann procedure",
+       "hartmann s procedure"]
+  proc.mastectomy_bilateral:
+    label: Bilateral mastectomy
+    text:
+      ["bilateral mastectomy", "bilateral mastectomies", "double mastectomy", "bilat mastectomy",
+       "bilateral prophylactic mastectomy", "bilateral simple mastectomy", "bilateral total mastectomy"]
+  proc.mastectomy_unspecified:
+    label: Mastectomy, one side or side not recorded
+    text: ["mastectomy", "left mastectomy", "right mastectomy", "unilateral mastectomy", "partial mastectomy"]
+  proc.chest_construction:
+    label: Chest masculinization surgery
+    text:
+      ["top surgery", "chest masculinization", "chest masculinization surgery", "masculinizing chest surgery",
+       "chest masculinizing surgery", "masculinizing mastectomy"]
+  proc.breast_implants:
+    label: Breast implants in place
+    text: ["breast implants", "breast implant", "breast augmentation", "augmentation mammoplasty", "augmentation mammaplasty"]
+    not_if: ["removal", "removed", "explant", "explantation"]
+  hx.neovagina:
+    label: Neovagina (no cervix)
+    # Plain "vaginoplasty" is left out: it's also used for prolapse repair
+    text: ["neovagina", "gender affirming vaginoplasty", "penile inversion vaginoplasty", "feminizing vaginoplasty"]

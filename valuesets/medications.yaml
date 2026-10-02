@@ -1,0 +1,73 @@
+# Medication list entries. CHR shows names, not DINs, so names drive matching: generic
+# names plus the Canadian brands most likely to appear. The fact store dates each current
+# medication with the day the walker saw it on the list, which is what "now or in the last
+# 2 years" in risk.immunocompromised reads.
+name: medications
+match: text
+applies_to: [medications]
+status: draft
+review_by: 2027-10-01
+sources:
+  - "BC Cancer Cervix Screening, immunocompromised definition: https://www.bccancer.bc.ca/screening/health-professionals/cervix"
+  - "WHO ATC/DDD Index (to cross-check classes at sign-off): https://atcddd.fhi.no/atc_ddd_index/"
+# A medication row that says any of these isn't a current medication. "Hold" is left out
+# because sigs say "hold if infection" on drugs that are very much current.
+blocked_by:
+  ["allergy", "allergic", "intolerance", "intolerant", "discontinued", "stopped", "d c", "held",
+   "not taking", "declined", "refused", "previously", "past"]
+concepts:
+  rx.immunosuppressant:
+    label: Systemic immunosuppressant (anti-TNF, methotrexate, azathioprine, mycophenolate, JAK inhibitor, anti-CD20, calcineurin inhibitor)
+    text:
+      ["adalimumab", "humira", "amgevita", "hadlima", "hyrimoz", "infliximab", "remicade", "inflectra",
+       "renflexis", "etanercept", "enbrel", "brenzys", "erelzi", "certolizumab", "cimzia", "golimumab",
+       "simponi", "methotrexate", "metoject", "azathioprine", "imuran", "mycophenolate",
+       "mycophenolate mofetil", "mycophenolic acid", "cellcept", "myfortic", "tofacitinib", "xeljanz",
+       "baricitinib", "olumiant", "upadacitinib", "rinvoq", "rituximab", "rituxan", "truxima", "riximyo",
+       "ruxience", "ocrelizumab", "ocrevus", "ofatumumab", "kesimpta", "obinutuzumab", "gazyva",
+       "tacrolimus", "prograf", "advagraf", "cyclosporine", "ciclosporin", "neoral", "sandimmune"]
+    # Eye drops and topicals of the same molecules aren't systemic
+    not_if: ["ophthalmic", "eye", "eyes", "drops", "drop", "restasis", "ointment", "cream", "topical", "protopic", "gel"]
+  rx.glucocorticoid_systemic:
+    label: Systemic glucocorticoid
+    text:
+      ["prednisone", "prednisolone", "methylprednisolone", "dexamethasone", "hydrocortisone", "cortisone",
+       "deflazacort", "medrol"]
+    not_if:
+      ["ophthalmic", "eye", "eyes", "drops", "drop", "otic", "ear", "ointment", "cream", "lotion", "topical",
+       "inhaler", "inhaled", "inhalation", "nasal", "spray", "rectal", "enema", "suppository", "foam",
+       "intra articular", "intraarticular", "joint", "pred forte"]
+  rx.statin:
+    label: Statin
+    text:
+      ["atorvastatin", "rosuvastatin", "simvastatin", "pravastatin", "lovastatin", "fluvastatin",
+       "pitavastatin", "lipitor", "crestor", "zocor"]
+  rx.insulin:
+    label: Insulin
+    text:
+      ["insulin", "glargine", "detemir", "degludec", "aspart", "lispro", "glulisine", "lantus", "basaglar",
+       "toujeo", "levemir", "tresiba", "novorapid", "fiasp", "humalog", "admelog", "apidra", "humulin", "novolin"]
+  rx.diabetes_specific_noninsulin:
+    label: Non-insulin drug that implies diabetes (sulfonylurea, DPP-4 inhibitor, meglitinide, acarbose)
+    # Metformin, GLP-1 agonists and SGLT2 inhibitors are left out on purpose: they're also
+    # used for prediabetes, PCOS, weight, heart failure and CKD
+    text:
+      ["gliclazide", "diamicron", "glyburide", "glibenclamide", "glimepiride", "amaryl", "glipizide",
+       "sitagliptin", "januvia", "janumet", "linagliptin", "trajenta", "jentadueto", "saxagliptin", "onglyza",
+       "alogliptin", "nesina", "repaglinide", "gluconorm", "acarbose", "glucobay"]
+  rx.metformin:
+    label: Metformin
+    text: ["metformin", "glucophage", "glumetza"]
+  rx.sglt2i:
+    label: SGLT2 inhibitor
+    text:
+      ["empagliflozin", "jardiance", "synjardy", "dapagliflozin", "forxiga", "xigduo", "canagliflozin",
+       "invokana", "ertugliflozin", "steglatro"]
+  rx.glp1ra:
+    label: GLP-1 receptor agonist (including tirzepatide)
+    text:
+      ["semaglutide", "ozempic", "rybelsus", "wegovy", "liraglutide", "victoza", "saxenda", "dulaglutide",
+       "trulicity", "tirzepatide", "mounjaro", "zepbound"]
+  rx.home_oxygen:
+    label: Home oxygen
+    text: ["home oxygen", "oxygen", "home o2", "o2", "oxygen concentrator"]

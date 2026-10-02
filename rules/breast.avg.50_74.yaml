@@ -1,0 +1,38 @@
+id: breast.avg.50_74
+version: 1
+title: Breast cancer screening, average risk, 50 to 74
+category: A
+subtype: cancer
+status: shadow
+source:
+  name: BC Cancer Breast Screening, Screening Guidelines and Fact Sheet (May 2026)
+  url: https://www.bccancer.bc.ca/screening/health-professionals/breast
+  checked: 2026-09-22
+population:
+  age: {min: 50, max: 74}
+  sex_at_birth:
+    is: F
+    or_any_of: [rx.estrogen_gender_affirming_5y]
+  # Annual screening for these lives in breast.fdr and breast.high_risk
+  none_of: [risk.breast_family_history_fdr, risk.breast_high_risk, hx.chest_radiation_10_30]
+exclusions:
+  - dx.breast_cancer
+  - proc.mastectomy_bilateral
+  - proc.chest_construction
+  - proc.breast_implants
+  - {concept: state.pregnancy, within_months: 3}
+  - {concept: state.breastfeeding, within_months: 3}
+satisfied_by:
+  - {concept: imaging.mammogram, within_months: 24}
+declined: {concept: decline.breast_screening, valid_months: 24}
+evidence_sources:
+  - documents.diagnostic_imaging
+  - history.medical
+  - history.surgical
+  - history.family
+  - medications
+action:
+  kind: self_refer
+  note: Patient message with 1-800-663-9203. BC Cancer sends providers no overdue reminder for breast.
+review_by: 2027-09-01
+owner: ali
