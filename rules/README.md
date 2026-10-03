@@ -8,6 +8,14 @@ python -m clinic_review.engine check rules   # CI runs this; it fails on any rul
 
 Every rule starts as `status: shadow`. It moves to `live` only after the chart audit shows PPV ≥ 90% and sensitivity ≥ 85% (PLAN section 9), and that move is a change to this file.
 
+WP1 snapshots title, version, category, status, and action into each new ledger run.
+Local reports use those snapshots, not today's rule files. Category B gaps go to
+physician review first; UNKNOWN gets its own input task, and DISCUSS stays pre-visit
+only. Exports don't enable shadow rules or authorize recalls. See
+[`docs/reporting.md`](../docs/reporting.md). The rule YAML schema hasn't changed.
+Feedback is capture-only while attestation validity/evidence mapping is undecided;
+no feedback outcome overrides a rule result or borrows its decline interval.
+
 ## Fields
 
 | Field | Required | Meaning |

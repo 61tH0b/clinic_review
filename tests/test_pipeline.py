@@ -190,6 +190,13 @@ def test_walk_then_evaluate(cdp_url, profile, store, fake_emr, tmp_path, frozen_
     assert ledger.state_of(run.run_id, "1004", "dm.eye") is None  # outreach patients get no rule run
     # 1003's "Seasonal allergies" and "Pelvic ultrasound": on the curation list, not facts
     assert ("no concept matched", 2) in ledger.skip_counts(run.run_id)
+    # The browser-walked synthetic ledger can be exported without another EMR read.
+    from clinic_review.report import read_run, worklists, write_worklists
+    report = read_run(store.path, run.run_id)
+    assert [(r["patient_id"], r["rule_id"]) for r in worklists(report)["physician_review"]] == [
+        ("1002", "colon.loop.fit_positive"),
+    ]
+    write_worklists(report, tmp_path / "browser-worklists")
     ledger.close()
 
     # The command line prints aggregates only: never a CHR id

@@ -248,6 +248,21 @@ Built 2026-10-02, end to end:
 - **Ledger** (`store/ledger.py`, in the same encrypted-account SQLite file): per run, the cohort group, every rule result with its evidence ids, and every skip. Each run records a digest of the rules and value sets it used, so two runs can be diffed knowing whether the logic changed.
 - **Command:** `python -m clinic_review.pipeline evaluate`. It prints aggregates only: cohort counts, counts by rule and state, and the top skip reasons. Run it with `--cohort-only` first to check the denominator.
 
+WP1 (0.2.0, local synthetic implementation) adds immutable per-run rule metadata
+snapshots and a full/cohort-only run marker. `python -m clinic_review.report` reads a
+finished full run without writing the store or opening capture keys. It exports
+self-contained HTML and CSV into a new private local directory outside Git checkouts.
+Worklists route by audience/action with category B first, UNKNOWN input tasks,
+pre-visit-only DISCUSS, and cohort outreach. The CLI prints counts only. Old ledger
+runs without snapshots need re-evaluation. See [reporting.md](reporting.md).
+
+Run diffs show newly open, closed, still open, and changed state, with separate
+added/removed evaluations and a ruleset-digest warning. Closed means leaving the
+open-state set, not demonstrated completed care; the destination state and cohort
+stay visible. Feedback CSV capture/validation is built, but attestation-to-facts and
+next-run closure are blocked on Ali's validity/evidence policy. All audit/sign-off
+gates remain in place, and no clinical interval or outcome mapping was chosen.
+
 Proven on synthetic charts: the walker walks the fake EMR, and the pipeline gets each patient's expected state (an overdue positive-FIT loop, an overdue diabetic eye exam, a patient on adalimumab moved off the routine cervix rule, outreach and excluded patients kept out of the rule run).
 
 ---
@@ -337,8 +352,8 @@ Updated 2026-10-02. "You" is the physician on the clinic Mac; everything patient
 
 | Work | Who | Why it's next |
 |---|---|---|
-| Queue export and pre-visit card (`report/`): patient-level lists, on the Mac only, with the evidence behind each state | Me | Results are only useful once someone can act on them |
-| Run diff and "already done" capture | Me | Shows what opened and closed between runs, and finds missing data sources |
+| WP1 worklists and run diff (`report/`, 0.2.0): HTML/CSV, evidence, action/audience routing, UNKNOWN, DISCUSS, outreach | Built for synthetic review | Local only; clinical sign-off still gates use |
+| WP1 "already done" capture/validation | Capture built; evaluation blocked on Ali | Attestation validity and rule-specific evidence mapping haven't been chosen |
 | Remaining cancer rules: breast FDR, high risk, chest radiation, 75+; cervix immunocompromised, post-treatment, exit at 70+; colon family history, surveillance, 75 to 84; screening-result loops; PSA-rising loop | Me | The concepts mostly exist. Each rule is a YAML file plus edge tests. |
 | Per-patient screen planning from `evidence_sources` | Me | Cuts walk volume before the full-panel walk |
 | Full-panel walk (roster pass, then eligibility pass) | You | Baseline numbers for the whole panel |
